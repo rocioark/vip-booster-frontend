@@ -1,17 +1,12 @@
 import axios, { AxiosError } from 'axios'
-import { getAccessToken, getRefreshToken, saveTokens, clearAuth, getStoredUser } from './auth'
+import { clearAuth } from './auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 export const api = axios.create({
   baseURL: `${BASE_URL}/api/v1`,
+  withCredentials: true,  // Send httpOnly auth cookies automatically
   headers: { 'Content-Type': 'application/json' },
-})
-
-api.interceptors.request.use((config) => {
-  const token = getAccessToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
 })
 
 api.interceptors.response.use(
@@ -20,21 +15,11 @@ api.interceptors.response.use(
     const original = error.config as typeof error.config & { _retry?: boolean }
     if (error.response?.status === 401 && !original?._retry) {
       original._retry = true
-      const refreshToken = getRefreshToken()
-      if (refreshToken) {
-        try {
-          const { data } = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, {
-            refresh_token: refreshToken,
-          })
-          const user = getStoredUser()!
-          saveTokens(data.access_token, data.refresh_token, user)
-          original.headers!.Authorization = `Bearer ${data.access_token}`
-          return api(original)
-        } catch {
-          clearAuth()
-          window.location.href = '/login'
-        }
-      } else {
+      try {
+        // The vb_refresh cookie is sent automatically via withCredentials
+        await axios.post(`${BASE_URL}/api/v1/auth/refresh`, {}, { withCredentials: true })
+        return api(original)
+      } catch {
         clearAuth()
         window.location.href = '/login'
       }
@@ -47,6 +32,7 @@ api.interceptors.response.use(
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
+  logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
 }
 
@@ -56,6 +42,15 @@ export const analyticsApi = {
     api.get('/analytics/summary', { params: venueId ? { venue_id: venueId } : {} }),
   event: (eventId: string) =>
     api.get(`/analytics/events/${eventId}`),
+}
+
+// ── Venues ───────────────────────────────────────────────────
+export const venuesApi = {
+  list: (params?: { skip?: number; limit?: number }) =>
+    api.get('/venues', { params: { limit: 100, ...params } }),
+  get: (id: string) => api.get(`/venues/${id}`),
+  create: (data: unknown) => api.post('/venues', data),
+  update: (id: string, data: unknown) => api.patch(`/venues/${id}`, data),
 }
 
 // ── Events ───────────────────────────────────────────────────
@@ -79,7 +74,7 @@ export const vipPackagesApi = {
 
 // ── Customers ────────────────────────────────────────────────
 export const customersApi = {
-  list: (params?: { skip?: number; limit?: number }) =>
+  list: (params?: { venue_id?: string; skip?: number; limit?: number }) =>
     api.get('/customers', { params: { limit: 100, ...params } }),
   create: (data: unknown) => api.post('/customers', data),
   get: (id: string) => api.get(`/customers/${id}`),
@@ -105,3 +100,16 @@ export const ticketsApi = {
   pdfUrl: (ticketId: string) =>
     `${BASE_URL}/api/v1/tickets/${ticketId}/pdf`,
 }
+
+// ── Discounts ────────────────────────────────────────────────
+// DELETE /{code} deactivates (soft delete). No update/activate endpoint exists.
+export const discountsApi = {
+  list: (params?: { venue_id?: string; active_only?: boolean; skip?: number; limit?: number }) =>
+    api.get('/discounts', { params }),
+  create: (data: unknown) => api.post('/discounts', data),
+  deactivate: (code: string) => api.delete(`/discounts/${code}`),
+  validate: (code: string, venue_id: string, subtotal: number) =>
+    api.get('/discounts/validate', { params: { code, venue_id, subtotal } }),
+}
+
+export { BASE_URL }
