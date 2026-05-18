@@ -1,31 +1,18 @@
 'use client'
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
-import { Sidebar } from '@/components/layout/Sidebar'
+import { useRouter, usePathname } from 'next/navigation'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+export default function OldDashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    if (!loading && !user) router.replace('/login')
-  }, [user, loading, router])
-
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="h-8 w-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+    router.replace(`/admin${pathname}`)
+  }, [router, pathname])
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto bg-gray-50">
-        {children}
-      </main>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <span className="h-8 w-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }

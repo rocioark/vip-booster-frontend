@@ -1,11 +1,11 @@
 import axios, { AxiosError } from 'axios'
 import { clearAuth } from './auth'
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
 export const api = axios.create({
-  baseURL: `${BASE_URL}/api/v1`,
-  withCredentials: true,  // Send httpOnly auth cookies automatically
+  baseURL: '/api/v1',
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -13,15 +13,15 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as typeof error.config & { _retry?: boolean }
-    if (error.response?.status === 401 && !original?._retry) {
+    const isAuthEndpoint = original?.url?.includes('/auth/')
+    if (error.response?.status === 401 && !original?._retry && !isAuthEndpoint) {
       original._retry = true
       try {
-        // The vb_refresh cookie is sent automatically via withCredentials
-        await axios.post(`${BASE_URL}/api/v1/auth/refresh`, {}, { withCredentials: true })
+        await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true })
         return api(original)
       } catch {
         clearAuth()
-        window.location.href = '/login'
+        if (typeof window !== 'undefined') window.location.href = '/login'
       }
     }
     return Promise.reject(error)
@@ -98,7 +98,7 @@ export const ticketsApi = {
   checkIn: (ticket_code: string, check_in_location?: string) =>
     api.post('/tickets/check-in', { ticket_code, check_in_location }),
   pdfUrl: (ticketId: string) =>
-    `${BASE_URL}/api/v1/tickets/${ticketId}/pdf`,
+    `/api/v1/tickets/${ticketId}/pdf`,
 }
 
 // ── Discounts ────────────────────────────────────────────────
@@ -112,4 +112,3 @@ export const discountsApi = {
     api.get('/discounts/validate', { params: { code, venue_id, subtotal } }),
 }
 
-export { BASE_URL }

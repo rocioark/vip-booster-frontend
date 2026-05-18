@@ -2,7 +2,7 @@ export interface User {
   id: string
   email: string
   full_name: string
-  role: 'super_admin' | 'venue_owner' | 'staff'
+  role: 'super_admin' | 'venue_owner' | 'venue_staff'
   venue_id: string | null
 }
 
@@ -142,6 +142,50 @@ export interface VenueSummary {
   total_events: number
   revenue_last_30_days: number
   top_events: TopEvent[]
+}
+
+export interface Discount {
+  id: string
+  venue_id: string
+  code: string
+  description: string | null
+  discount_type: 'percentage' | 'fixed'
+  value: number
+  max_uses: number | null
+  current_uses: number
+  is_active: boolean
+  valid_from: string | null
+  valid_to: string | null
+  created_at: string
+}
+
+export interface PublicVenue {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface PublicVenueDetail extends PublicVenue {
+  created_at: string
+  events: PublicEvent[]
+}
+
+export interface PublicEvent {
+  id: string
+  venue_id: string
+  name: string
+  slug: string
+  description: string | null
+  cover_image_url: string | null
+  artist_name: string | null
+  artist_image_url: string | null
+  event_date: string
+  event_start_time: string
+  doors_open_time: string | null
+  venue_location: string | null
+  capacity: number | null
+  status: 'published' | 'sold_out'
+  available?: number
 }
 
 export interface EventAnalytics {

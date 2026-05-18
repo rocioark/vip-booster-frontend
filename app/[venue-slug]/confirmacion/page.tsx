@@ -6,7 +6,6 @@ import { publicApi } from '@/lib/public-api'
 import type { Order, Ticket } from '@/lib/types'
 import Link from 'next/link'
 import { CheckCircle2, Download, QrCode, Calendar, Clock } from 'lucide-react'
-import { BASE_URL } from '@/lib/api'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -130,7 +129,7 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
                     )}
                   </div>
                   <a
-                    href={`${BASE_URL}/api/v1/tickets/${ticket.id}/pdf`}
+                    href={`/api/v1/tickets/${ticket.id}/pdf`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-4 flex items-center justify-center gap-2 text-sm text-brand-400 hover:text-brand-300 border border-brand-800 hover:border-brand-600 rounded-xl py-2.5 transition-colors"

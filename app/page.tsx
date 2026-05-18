@@ -6,7 +6,7 @@ import { isAuthenticated } from '@/lib/auth'
 export default function Root() {
   const router = useRouter()
   useEffect(() => {
-    router.replace(isAuthenticated() ? '/dashboard' : '/login')
+    router.replace(isAuthenticated() ? '/admin/dashboard' : '/login')
   }, [router])
   return (
     <div className="min-h-screen flex items-center justify-center">

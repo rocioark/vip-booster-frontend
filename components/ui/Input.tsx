@@ -1,12 +1,15 @@
 import { clsx } from 'clsx'
-import { InputHTMLAttributes } from 'react'
+import { InputHTMLAttributes, forwardRef } from 'react'
 
 interface Props extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
 }
 
-export function Input({ label, error, className, id, ...props }: Props) {
+export const Input = forwardRef<HTMLInputElement, Props>(function Input(
+  { label, error, className, id, ...props },
+  ref
+) {
   return (
     <div className="flex flex-col gap-1">
       {label && (
@@ -15,6 +18,7 @@ export function Input({ label, error, className, id, ...props }: Props) {
         </label>
       )}
       <input
+        ref={ref}
         id={id}
         className={clsx(
           'rounded-lg border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500',
@@ -26,4 +30,4 @@ export function Input({ label, error, className, id, ...props }: Props) {
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   )
-}
+})
