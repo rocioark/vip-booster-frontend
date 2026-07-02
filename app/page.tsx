@@ -1,3 +1,6 @@
+'use client'
+import { useState, FormEvent } from 'react'
+
 const features = [
   {
     title: 'Paquetes VIP listos para vender',
@@ -18,21 +21,136 @@ const features = [
 
 const pricing = [
   {
-    label: 'Setup fee',
-    value: '$800.000 COP',
-    detail: 'Pago único de implementación',
+    label: 'Starter',
+    value: 'Gratis',
+    detail: 'Hasta 50 asistentes, eventos gratuitos, check-in QR',
   },
   {
-    label: 'Mensualidad',
-    value: '$200.000 COP',
-    detail: 'Soporte y acceso a la plataforma',
+    label: 'Grow',
+    value: '9% por boleta',
+    detail: 'Sin límite de eventos, tienda pública, analytics, descuentos',
   },
   {
-    label: 'Comisión',
-    value: '10%',
-    detail: 'Sobre el revenue VIP generado',
+    label: 'Pro',
+    value: '9% + $800.000 setup + $200.000/mes',
+    detail: 'Soporte prioritario, múltiples venues',
   },
 ]
+
+function ContactForm() {
+  const [form, setForm] = useState({ nombre: '', email: '', telefono: '', venue: '', ciudad: '' })
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setStatus('loading')
+    setError('')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.detail ?? 'No se pudo enviar el mensaje')
+      }
+      setStatus('success')
+      setForm({ nombre: '', email: '', telefono: '', venue: '', ciudad: '' })
+    } catch (err) {
+      setStatus('error')
+      setError(err instanceof Error ? err.message : 'No se pudo enviar el mensaje')
+    }
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-3xl bg-slate-950/80 p-6 text-center ring-1 ring-white/10">
+        <p className="text-2xl font-black text-white">¡Listo!</p>
+        <p className="mt-3 text-slate-300">
+          Recibimos tu solicitud. Te contactaremos pronto para ayudarte a empezar.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-3xl bg-slate-950/80 p-6 ring-1 ring-white/10">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="sr-only" htmlFor="nombre">Nombre</label>
+        <input
+          id="nombre"
+          name="nombre"
+          type="text"
+          required
+          placeholder="Nombre"
+          value={form.nombre}
+          onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+          className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
+        />
+        <label className="sr-only" htmlFor="email">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          placeholder="Email"
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+          className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
+        />
+        <label className="sr-only" htmlFor="telefono">Teléfono</label>
+        <input
+          id="telefono"
+          name="telefono"
+          type="tel"
+          required
+          placeholder="Teléfono"
+          value={form.telefono}
+          onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+          className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
+        />
+        <label className="sr-only" htmlFor="venue">Nombre del venue</label>
+        <input
+          id="venue"
+          name="venue"
+          type="text"
+          required
+          placeholder="Nombre del venue"
+          value={form.venue}
+          onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
+          className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
+        />
+        <label className="sr-only" htmlFor="ciudad">Ciudad</label>
+        <input
+          id="ciudad"
+          name="ciudad"
+          type="text"
+          required
+          placeholder="Ciudad"
+          value={form.ciudad}
+          onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))}
+          className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF] sm:col-span-2"
+        />
+      </div>
+
+      {status === 'error' && (
+        <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={status === 'loading'}
+        className="mt-5 w-full rounded-full bg-[#D946EF] px-8 py-4 text-base font-black text-white shadow-xl shadow-[#D946EF]/30 transition hover:-translate-y-0.5 hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {status === 'loading' ? 'Enviando…' : 'Quiero empezar'}
+      </button>
+    </form>
+  )
+}
 
 export default function Home() {
   return (
@@ -52,7 +170,7 @@ export default function Home() {
             href="#contacto"
             className="hidden rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-[#D946EF] hover:bg-[#D946EF]/10 sm:inline-flex"
           >
-            Solicitar Demo
+            Quiero empezar
           </a>
         </nav>
 
@@ -62,17 +180,17 @@ export default function Home() {
               Plataforma SaaS para venues
             </div>
             <h1 className="max-w-4xl text-5xl font-black tracking-tight text-white sm:text-6xl lg:text-7xl">
-              VIP Booster
+              La plataforma VIP para tus eventos
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-8 text-slate-300 sm:text-2xl">
-              Plataforma SaaS para venues — vende paquetes VIP y aumenta ingresos 30-50%
+              Vende paquetes VIP, gestiona tu boletería y aumenta tus ingresos con Kythos VIP Booster
             </p>
             <div className="mt-10 flex flex-col gap-4 sm:flex-row">
               <a
                 href="#contacto"
                 className="inline-flex items-center justify-center rounded-full bg-[#D946EF] px-8 py-4 text-base font-bold text-white shadow-xl shadow-[#D946EF]/30 transition hover:-translate-y-0.5 hover:bg-fuchsia-500"
               >
-                Solicitar Demo
+                Quiero empezar
               </a>
               <a
                 href="#precios"
@@ -162,52 +280,7 @@ export default function Home() {
             </p>
           </div>
 
-          <form className="rounded-3xl bg-slate-950/80 p-6 ring-1 ring-white/10" action="mailto:contacto@kythos.vip" method="post" encType="text/plain">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="sr-only" htmlFor="nombre">Nombre</label>
-              <input
-                id="nombre"
-                name="nombre"
-                type="text"
-                required
-                placeholder="Nombre"
-                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
-              />
-              <label className="sr-only" htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                placeholder="Email"
-                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF]"
-              />
-              <label className="sr-only" htmlFor="telefono">Teléfono</label>
-              <input
-                id="telefono"
-                name="telefono"
-                type="tel"
-                required
-                placeholder="Teléfono"
-                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF] sm:col-span-2"
-              />
-              <label className="sr-only" htmlFor="mensaje">Mensaje</label>
-              <textarea
-                id="mensaje"
-                name="mensaje"
-                required
-                placeholder="Mensaje"
-                rows={5}
-                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-[#D946EF] sm:col-span-2"
-              />
-            </div>
-            <button
-              type="submit"
-              className="mt-5 w-full rounded-full bg-[#D946EF] px-8 py-4 text-base font-black text-white shadow-xl shadow-[#D946EF]/30 transition hover:-translate-y-0.5 hover:bg-fuchsia-500"
-            >
-              Solicitar Demo
-            </button>
-          </form>
+          <ContactForm />
         </div>
       </section>
     </main>
