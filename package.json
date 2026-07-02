@@ -10,16 +10,15 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.1",
-    "@types/nodemailer": "^8.0.1",
     "axios": "^1.7.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.417.0",
     "next": "^14.2.35",
-    "nodemailer": "^9.0.3",
     "react": "^18",
     "react-dom": "^18",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "resend": "^6.16.0"
   },
   "devDependencies": {
     "@types/node": "^20",

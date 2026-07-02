@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
 interface ContactPayload {
   nombre: string
@@ -35,21 +35,17 @@ export async function POST(req: NextRequest) {
 
   const { nombre, email, telefono, venue, ciudad } = body
 
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPassword = process.env.GMAIL_APP_PASSWORD
-
-  if (!gmailUser || !gmailPassword) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
     return NextResponse.json({ detail: 'Servicio de email no configurado' }, { status: 500 })
   }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: gmailUser, pass: gmailPassword },
-  })
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'VIP Booster <onboarding@resend.dev>'
+  const resend = new Resend(apiKey)
 
   try {
-    await transporter.sendMail({
-      from: `VIP Booster <${gmailUser}>`,
+    const { error } = await resend.emails.send({
+      from: fromEmail,
       to: 'centraldepedidosweb@gmail.com',
       replyTo: email,
       subject: `Nueva solicitud de demo — ${venue}`,
@@ -69,6 +65,11 @@ export async function POST(req: NextRequest) {
         <p><strong>Ciudad:</strong> ${ciudad}</p>
       `,
     })
+
+    if (error) {
+      console.error('Error enviando email de contacto:', error)
+      return NextResponse.json({ detail: 'No se pudo enviar el mensaje. Intenta de nuevo.' }, { status: 502 })
+    }
   } catch (err) {
     console.error('Error enviando email de contacto:', err)
     return NextResponse.json({ detail: 'No se pudo enviar el mensaje. Intenta de nuevo.' }, { status: 502 })
