@@ -213,14 +213,14 @@ export default function Home() {
                 </span>
               </div>
               <div className="space-y-4">
-                {['Mesa premium', 'Botella + acceso', 'Upgrade experiencia'].map((item, index) => (
-                  <div key={item} className="flex items-center justify-between rounded-2xl bg-white/[0.04] p-4">
+                {pricing.map((plan) => (
+                  <div key={plan.label} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white/[0.04] p-4">
                     <div>
-                      <p className="font-semibold text-white">{item}</p>
-                      <p className="text-sm text-slate-400">Paquete VIP #{index + 1}</p>
+                      <p className="font-semibold text-white">{plan.label}</p>
+                      <p className="text-sm text-slate-400">Plan VIP Booster</p>
                     </div>
-                    <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-sm font-semibold text-emerald-300">
-                      Activo
+                    <span className="rounded-full bg-[#D946EF]/15 px-3 py-1 text-sm font-semibold text-fuchsia-200">
+                      {plan.value}
                     </span>
                   </div>
                 ))}
@@ -271,13 +271,10 @@ export default function Home() {
       <section id="contacto" className="px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto grid max-w-7xl gap-10 rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl shadow-black/20 backdrop-blur md:grid-cols-[0.9fr_1.1fr] md:p-10">
           <div className="flex flex-col justify-center">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D946EF]">Demo</p>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D946EF]">Activa tu venue</p>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Solicita una demo para tu venue
+              Déjanos tus datos y te contactamos en menos de 24 horas para activar tu venue.
             </h2>
-            <p className="mt-5 text-lg leading-8 text-slate-300">
-              Cuéntanos sobre tu venue y te mostramos cómo VIP Booster puede ayudarte a vender paquetes VIP y aumentar ingresos.
-            </p>
           </div>
 
           <ContactForm />
