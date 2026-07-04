@@ -1,5 +1,6 @@
 'use client'
 import { useState, FormEvent } from 'react'
+import Link from 'next/link'
 
 const features = [
   {
@@ -166,12 +167,20 @@ export default function Home() {
             </span>
             <span className="text-lg font-bold tracking-tight">VIP Booster</span>
           </a>
-          <a
-            href="#contacto"
-            className="hidden rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-[#D946EF] hover:bg-[#D946EF]/10 sm:inline-flex"
-          >
-            Quiero empezar
-          </a>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/eventos"
+              className="text-sm font-semibold text-slate-300 transition hover:text-white"
+            >
+              Eventos
+            </Link>
+            <a
+              href="#contacto"
+              className="hidden rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-[#D946EF] hover:bg-[#D946EF]/10 sm:inline-flex"
+            >
+              Quiero empezar
+            </a>
+          </div>
         </nav>
 
         <div id="top" className="mx-auto grid max-w-7xl items-center gap-12 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:py-28">

@@ -188,6 +188,23 @@ export interface PublicEvent {
   available?: number
 }
 
+export interface PublicEventListItem {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  artist_name: string | null
+  cover_image_url: string | null
+  artist_image_url: string | null
+  event_date: string
+  event_start_time: string
+  venue_location: string | null
+  status: 'draft' | 'published' | 'sold_out' | 'cancelled'
+  venue_id: string
+  venue_name: string
+  venue_slug: string
+}
+
 export interface EventAnalytics {
   event_id: string
   event_name: string

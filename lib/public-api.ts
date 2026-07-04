@@ -10,6 +10,10 @@ export const publicApi = {
   getVenueBySlug: (slug: string) =>
     pub.get(`/public/venues/${slug}`),
 
+  // Eventos publicados de todos los venues
+  listEvents: (params?: { limit?: number; skip?: number }) =>
+    pub.get('/public/events', { params }),
+
   // Packages VIP de un evento
   getPackages: (eventId: string) =>
     pub.get('/public/vip-packages', { params: { event_id: eventId } }),
