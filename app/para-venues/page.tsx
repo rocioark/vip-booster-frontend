@@ -1,22 +1,26 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
+import { Tag, TrendingUp, LayoutDashboard } from 'lucide-react'
 
 const features = [
   {
     title: 'Paquetes VIP listos para vender',
     description:
       'Crea experiencias, mesas, upgrades y beneficios exclusivos para tus clientes en minutos.',
+    icon: Tag,
   },
   {
     title: 'Más ingresos por venue',
     description:
       'Convierte la demanda premium en revenue adicional con una plataforma enfocada en upselling VIP.',
+    icon: TrendingUp,
   },
   {
     title: 'Gestión SaaS simple',
     description:
       'Administra solicitudes, contactos y ventas VIP desde una experiencia clara, rápida y responsive.',
+    icon: LayoutDashboard,
   },
 ]
 
@@ -266,8 +270,8 @@ export default function ParaVenuesPage() {
           <div className="grid gap-5 md:grid-cols-3">
             {features.map((feature) => (
               <article key={feature.title} className="rounded-3xl border border-white/10 bg-slate-900/70 p-7">
-                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D946EF]/15 text-xl font-black text-[#D946EF]">
-                  V
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#D946EF]/15 text-[#D946EF]">
+                  <feature.icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-xl font-black text-white">{feature.title}</h3>
                 <p className="mt-3 leading-7 text-slate-300">{feature.description}</p>
@@ -282,10 +286,10 @@ export default function ParaVenuesPage() {
           <div className="flex flex-col justify-center">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D946EF]">Activa tu venue</p>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Activa tu venue hoy
+              Activa tu venue
             </h2>
             <p className="mt-2 text-sm text-slate-400">
-              Te contactamos en menos de 24 horas.
+              Te contactamos en menos de 24 horas
             </p>
           </div>
 
