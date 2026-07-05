@@ -282,8 +282,11 @@ export default function ParaVenuesPage() {
           <div className="flex flex-col justify-center">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D946EF]">Activa tu venue</p>
             <h2 className="mt-4 text-3xl font-black tracking-tight text-white sm:text-4xl">
-              Déjanos tus datos y te contactamos en menos de 24 horas para activar tu venue.
+              Activa tu venue hoy
             </h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Te contactamos en menos de 24 horas.
+            </p>
           </div>
 
           <ContactForm />

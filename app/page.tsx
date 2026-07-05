@@ -105,9 +105,9 @@ export default function Home() {
           </Link>
           <Link
             href="/para-venues"
-            className="hidden rounded-full border border-white/15 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-[#D946EF] hover:bg-[#D946EF]/10 sm:inline-flex"
+            className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
           >
-            Para venues
+            ¿Eres un venue?
           </Link>
         </div>
       </nav>
