@@ -2,7 +2,7 @@
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
-import { Tag, TrendingUp, LayoutDashboard } from 'lucide-react'
+import { Tag, TrendingUp, LayoutDashboard, Check } from 'lucide-react'
 
 const features = [
   {
@@ -25,21 +25,62 @@ const features = [
   },
 ]
 
-const pricing = [
+interface PricingPlan {
+  label: string
+  price: string
+  priceNote: string
+  shortPrice: string
+  features: string[]
+  cta: string
+  highlighted: boolean
+  badge: string | null
+  savings: string | null
+}
+
+const pricing: PricingPlan[] = [
   {
     label: 'Starter',
-    lines: ['Gratis'],
-    detail: 'Hasta 50 asistentes, eventos gratuitos, check-in QR',
+    price: 'Gratis',
+    priceNote: '',
+    shortPrice: 'Gratis',
+    features: ['Hasta 50 boletas/mes', 'Solo eventos gratuitos', 'Check-in QR incluido'],
+    cta: 'Empezar gratis',
+    highlighted: false,
+    badge: null,
+    savings: null,
   },
   {
     label: 'Grow',
-    lines: ['9% por boleta'],
-    detail: 'Sin límite de eventos, tienda pública, analytics, descuentos',
+    price: '9%',
+    priceNote: 'por boleta vendida · sin mensualidad',
+    shortPrice: '9% por boleta',
+    features: ['Hasta 500 boletas/mes', 'Tienda pública', 'Analytics y descuentos'],
+    cta: 'Elegir Grow',
+    highlighted: false,
+    badge: null,
+    savings: null,
   },
   {
-    label: 'Pro',
-    lines: ['9% por boleta', '$800.000 setup único', '$200.000/mes'],
-    detail: 'Soporte prioritario, múltiples venues',
+    label: 'Pro Mensual',
+    price: '$250.000',
+    priceNote: '/mes + 9% por boleta',
+    shortPrice: '$250.000/mes',
+    features: ['Hasta 2.000 boletas/mes', 'Todo lo de Grow', 'Soporte prioritario'],
+    cta: 'Elegir Pro',
+    highlighted: true,
+    badge: 'Recomendado',
+    savings: null,
+  },
+  {
+    label: 'Pro Anual',
+    price: '$2.400.000',
+    priceNote: '/año + 9% por boleta',
+    shortPrice: '$2,4M/año',
+    features: ['Boletas ilimitadas', 'Todo lo de Pro', 'Múltiples venues + soporte dedicado'],
+    cta: 'Elegir Pro Anual',
+    highlighted: false,
+    badge: null,
+    savings: 'Equivale a $200.000/mes — ahorras $600.000 al año vs. Pro Mensual',
   },
 ]
 
@@ -224,24 +265,13 @@ export default function ParaVenuesPage() {
                   Live SaaS
                 </span>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {pricing.map((plan) => (
-                  <div key={plan.label} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white/[0.04] p-4">
-                    <div>
-                      <p className="font-semibold text-white">{plan.label}</p>
-                      <p className="text-sm text-slate-400">Plan VIP Booster</p>
-                    </div>
-                    <div
-                      className={`flex flex-col items-end gap-0.5 bg-[#D946EF]/15 px-3 py-1.5 text-fuchsia-200 ${
-                        plan.lines.length > 1 ? 'rounded-2xl' : 'rounded-full'
-                      }`}
-                    >
-                      {plan.lines.map((line) => (
-                        <span key={line} className="text-sm font-semibold whitespace-nowrap">
-                          {line}
-                        </span>
-                      ))}
-                    </div>
+                  <div key={plan.label} className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5">
+                    <p className="text-sm font-semibold text-white">{plan.label}</p>
+                    <span className="rounded-full bg-[#D946EF]/15 px-3 py-1 text-xs font-semibold text-fuchsia-200 whitespace-nowrap">
+                      {plan.shortPrice}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -254,25 +284,57 @@ export default function ParaVenuesPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D946EF]">Precios</p>
-            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Modelo simple para crecer revenue VIP</h2>
+            <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Elige el plan ideal para tu venue</h2>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {pricing.map((item) => (
+          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4 lg:items-start">
+            {pricing.map((plan) => (
               <article
-                key={item.label}
-                className="rounded-3xl border border-white/10 bg-white/[0.06] p-7 shadow-xl shadow-black/10 transition hover:-translate-y-1 hover:border-[#D946EF]/60"
+                key={plan.label}
+                className={`relative flex flex-col rounded-3xl border p-7 shadow-xl transition hover:-translate-y-1 ${
+                  plan.highlighted
+                    ? 'border-2 border-[#D946EF] bg-white/[0.08] shadow-[0_0_45px_rgba(217,70,239,0.35)] lg:scale-105'
+                    : 'border-white/10 bg-white/[0.06] shadow-black/10 hover:border-[#D946EF]/60'
+                }`}
               >
-                <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{item.label}</p>
-                {item.lines.map((line, index) => (
-                  <p
-                    key={line}
-                    className={index === 0 ? 'mt-4 text-3xl font-black text-white' : 'mt-1 text-xl font-black text-white'}
-                  >
-                    {line}
-                  </p>
-                ))}
-                <p className="mt-3 text-slate-300">{item.detail}</p>
+                {plan.badge && (
+                  <span className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#D946EF] px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-[#D946EF]/40">
+                    {plan.badge}
+                  </span>
+                )}
+
+                <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{plan.label}</p>
+
+                <div className="mt-4">
+                  <span className="text-4xl font-black text-white">{plan.price}</span>
+                  {plan.priceNote && (
+                    <span className="ml-1.5 text-sm font-semibold text-slate-400">{plan.priceNote}</span>
+                  )}
+                </div>
+
+                {plan.savings && (
+                  <p className="mt-2 text-xs font-semibold text-emerald-400">{plan.savings}</p>
+                )}
+
+                <ul className="mt-6 flex-1 space-y-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2 text-sm text-slate-300">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#D946EF]" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href="#contacto"
+                  className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition ${
+                    plan.highlighted
+                      ? 'bg-[#D946EF] text-white shadow-lg shadow-[#D946EF]/30 hover:-translate-y-0.5 hover:bg-fuchsia-500'
+                      : 'border border-white/15 text-white hover:border-[#D946EF] hover:bg-[#D946EF]/10'
+                  }`}
+                >
+                  {plan.cta}
+                </a>
               </article>
             ))}
           </div>
