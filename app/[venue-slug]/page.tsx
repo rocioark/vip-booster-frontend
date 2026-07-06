@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
 import type { PublicEvent, PublicVenueDetail } from '@/lib/types'
 import Link from 'next/link'
+import { Logo } from '@/components/Logo'
 import { CalendarDays, MapPin, Clock, Ticket } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -118,7 +119,7 @@ export default function VenueStorePage({ params }: PageProps) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="text-center mb-12">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-black mb-4">V</div>
+        <Logo className="inline-block h-14 w-14 mb-4" />
         {isLoading ? (
           <div className="space-y-2">
             <div className="h-8 w-48 bg-gray-800 rounded-lg mx-auto animate-pulse" />

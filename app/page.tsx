@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
 import type { PublicEventListItem } from '@/lib/types'
 import Link from 'next/link'
+import { Logo } from '@/components/Logo'
 import { CalendarDays, MapPin, Clock, Ticket } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -98,9 +99,7 @@ export default function Home() {
       <nav className="px-6 py-8 sm:px-10 lg:px-16">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="VIP Booster inicio">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#D946EF] text-xl font-black text-white shadow-lg shadow-[#D946EF]/30">
-              V
-            </span>
+            <Logo className="h-11 w-11 shadow-lg shadow-[#D946EF]/30" />
             <span className="text-lg font-bold tracking-tight">VIP Booster</span>
           </Link>
           <Link

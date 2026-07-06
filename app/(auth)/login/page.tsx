@@ -3,6 +3,7 @@ import { useState, FormEvent } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { Logo } from '@/components/Logo'
 import { AxiosError } from 'axios'
 
 export default function LoginPage() {
@@ -31,7 +32,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-2xl font-bold text-white mb-4">V</span>
+          <Logo className="inline-block h-14 w-14 mb-4" />
           <h1 className="text-2xl font-bold text-white">VIP Booster</h1>
           <p className="text-gray-400 text-sm mt-1">Gestión de tickets VIP</p>
         </div>

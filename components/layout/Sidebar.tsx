@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, CalendarDays, ShoppingCart, ScanLine, LogOut } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '@/hooks/useAuth'
+import { Logo } from '@/components/Logo'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard },
@@ -20,7 +21,7 @@ export function Sidebar() {
     <aside className="flex h-screen w-56 flex-col bg-gray-900 text-white shrink-0">
       {/* Logo */}
       <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold">V</span>
+        <Logo className="h-8 w-8" />
         <span className="font-semibold text-sm tracking-wide">VIP Booster</span>
       </div>
 

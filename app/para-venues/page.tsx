@@ -1,6 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import Link from 'next/link'
+import { Logo } from '@/components/Logo'
 import { Tag, TrendingUp, LayoutDashboard } from 'lucide-react'
 
 const features = [
@@ -27,17 +28,17 @@ const features = [
 const pricing = [
   {
     label: 'Starter',
-    value: 'Gratis',
+    lines: ['Gratis'],
     detail: 'Hasta 50 asistentes, eventos gratuitos, check-in QR',
   },
   {
     label: 'Grow',
-    value: '9% por boleta',
+    lines: ['9% por boleta'],
     detail: 'Sin límite de eventos, tienda pública, analytics, descuentos',
   },
   {
     label: 'Pro',
-    value: '9% + $800.000 setup + $200.000/mes',
+    lines: ['9% por boleta', '$800.000 setup único', '$200.000/mes'],
     detail: 'Soporte prioritario, múltiples venues',
   },
 ]
@@ -166,9 +167,7 @@ export default function ParaVenuesPage() {
 
         <nav className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="flex items-center gap-3" aria-label="VIP Booster inicio">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#D946EF] text-xl font-black text-white shadow-lg shadow-[#D946EF]/30">
-              V
-            </span>
+            <Logo className="h-11 w-11 shadow-lg shadow-[#D946EF]/30" />
             <span className="text-lg font-bold tracking-tight">VIP Booster</span>
           </Link>
           <div className="flex items-center gap-6">
@@ -232,9 +231,17 @@ export default function ParaVenuesPage() {
                       <p className="font-semibold text-white">{plan.label}</p>
                       <p className="text-sm text-slate-400">Plan VIP Booster</p>
                     </div>
-                    <span className="rounded-full bg-[#D946EF]/15 px-3 py-1 text-sm font-semibold text-fuchsia-200">
-                      {plan.value}
-                    </span>
+                    <div
+                      className={`flex flex-col items-end gap-0.5 bg-[#D946EF]/15 px-3 py-1.5 text-fuchsia-200 ${
+                        plan.lines.length > 1 ? 'rounded-2xl' : 'rounded-full'
+                      }`}
+                    >
+                      {plan.lines.map((line) => (
+                        <span key={line} className="text-sm font-semibold whitespace-nowrap">
+                          {line}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -257,7 +264,14 @@ export default function ParaVenuesPage() {
                 className="rounded-3xl border border-white/10 bg-white/[0.06] p-7 shadow-xl shadow-black/10 transition hover:-translate-y-1 hover:border-[#D946EF]/60"
               >
                 <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">{item.label}</p>
-                <p className="mt-4 text-3xl font-black text-white">{item.value}</p>
+                {item.lines.map((line, index) => (
+                  <p
+                    key={line}
+                    className={index === 0 ? 'mt-4 text-3xl font-black text-white' : 'mt-1 text-xl font-black text-white'}
+                  >
+                    {line}
+                  </p>
+                ))}
                 <p className="mt-3 text-slate-300">{item.detail}</p>
               </article>
             ))}
