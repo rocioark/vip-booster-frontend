@@ -9,18 +9,20 @@ interface Props {
   title: string
   children: React.ReactNode
   size?: 'sm' | 'md' | 'lg'
+  /** Si es false, el modal no se cierra con click en el overlay ni con Escape (solo con la X). */
+  dismissable?: boolean
 }
 
 const sizes = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl' }
 
-export function Modal({ open, onClose, title, children, size = 'md' }: Props) {
+export function Modal({ open, onClose, title, children, size = 'md', dismissable = true }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && dismissable) onClose() }
     if (open) { document.addEventListener('keydown', onKey); document.body.style.overflow = 'hidden' }
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
-  }, [open, onClose])
+  }, [open, onClose, dismissable])
 
   if (!open) return null
 

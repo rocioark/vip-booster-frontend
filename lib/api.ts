@@ -74,7 +74,7 @@ export const vipPackagesApi = {
 
 // ── Customers ────────────────────────────────────────────────
 export const customersApi = {
-  list: (params?: { venue_id?: string; skip?: number; limit?: number }) =>
+  list: (params?: { venue_id?: string; email?: string; skip?: number; limit?: number }) =>
     api.get('/customers', { params: { limit: 100, ...params } }),
   create: (data: unknown) => api.post('/customers', data),
   get: (id: string) => api.get(`/customers/${id}`),

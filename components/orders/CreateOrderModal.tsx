@@ -27,6 +27,20 @@ const SALES_CHANNELS = [
 
 interface Props { open: boolean; onClose: () => void; venueId: string }
 
+// FastAPI devuelve `detail` como string en errores de negocio y como array
+// de objetos en errores de validación (422) — nunca renderizar el array crudo.
+function errorMessage(e: unknown, fallback: string): string {
+  const detail = (e as AxiosError<{ detail: unknown }>)?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map(d => (typeof d?.msg === 'string' ? d.msg : ''))
+      .filter(Boolean)
+      .join('. ') || fallback
+  }
+  return fallback
+}
+
 export function CreateOrderModal({ open, onClose, venueId }: Props) {
   const qc = useQueryClient()
 
@@ -46,10 +60,11 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
   const [discountCode, setDiscountCode] = useState('')
   const [err, setErr] = useState('')
   const [searching, setSearching] = useState(false)
+  const [searched, setSearched] = useState(false)
 
   function reset() {
     setStep(1); setSelectedEventId(''); setItems([])
-    setCustomerEmail(''); setFoundCustomer(null)
+    setCustomerEmail(''); setFoundCustomer(null); setSearched(false)
     setNewCustomerName(''); setNewCustomerPhone('')
     setHolderName(''); setHolderEmail(''); setHolderPhone('')
     setPaymentMethod('cash'); setSalesChannel('pos'); setDiscountCode(''); setErr('')
@@ -67,19 +82,26 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
     enabled: !!selectedEventId,
   })
 
-  const { data: customers } = useQuery<Customer[]>({
-    queryKey: ['customers', venueId],
-    queryFn: async () => { const r = await customersApi.list(); return r.data },
-    enabled: open,
-  })
+  async function findCustomerByEmail(email: string): Promise<Customer | null> {
+    const r = await customersApi.list({ venue_id: venueId, email })
+    return r.data[0] ?? null
+  }
 
-  function searchCustomer() {
-    if (!customerEmail.trim()) return
+  async function searchCustomer() {
+    const email = customerEmail.trim()
+    if (!email) return
     setSearching(true)
-    const found = customers?.find(c => c.email.toLowerCase() === customerEmail.trim().toLowerCase()) ?? null
-    setFoundCustomer(found)
-    if (found) { setHolderName(found.full_name); setHolderEmail(found.email); setHolderPhone(found.phone ?? '') }
-    setSearching(false)
+    setErr('')
+    try {
+      const found = await findCustomerByEmail(email)
+      setFoundCustomer(found)
+      setSearched(true)
+      if (found) { setHolderName(found.full_name); setHolderEmail(found.email); setHolderPhone(found.phone ?? '') }
+    } catch (e) {
+      setErr(errorMessage(e, 'Error al buscar el cliente'))
+    } finally {
+      setSearching(false)
+    }
   }
 
   function adjustItem(pkgId: string, pkgName: string, pkgPrice: number, delta: number) {
@@ -96,25 +118,34 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
 
   const createOrderMut = useMutation({
     mutationFn: async () => {
-      let customerId: string
+      let customer = foundCustomer
 
-      if (foundCustomer) {
-        customerId = foundCustomer.id
-      } else {
-        // Create customer first
-        const { data: newCust } = await customersApi.create({
-          venue_id: venueId,
-          email: customerEmail.trim(),
-          full_name: newCustomerName.trim(),
-          phone: newCustomerPhone.trim() || null,
-        })
-        customerId = newCust.id
+      if (!customer) {
+        try {
+          const { data: newCust } = await customersApi.create({
+            venue_id: venueId,
+            email: customerEmail.trim(),
+            full_name: newCustomerName.trim(),
+            phone: newCustomerPhone.trim() || null,
+          })
+          customer = newCust as Customer
+        } catch (e) {
+          // Si el cliente ya existe (p. ej. quedó creado en un intento anterior
+          // cuya orden falló), recuperarlo y continuar en vez de morir en 400.
+          if ((e as AxiosError).response?.status === 400) {
+            customer = await findCustomerByEmail(customerEmail.trim())
+          }
+          if (!customer) throw e
+        }
+        // Persistir en estado para que un reintento no vuelva a crear al cliente
+        setFoundCustomer(customer)
+        setSearched(true)
       }
 
       return ordersApi.create({
         venue_id: venueId,
         event_id: selectedEventId,
-        customer_id: customerId,
+        customer_id: customer.id,
         items: items.map(i => ({ vip_package_id: i.vip_package_id, quantity: i.quantity })),
         payment_method: paymentMethod,
         sales_channel: salesChannel,
@@ -126,10 +157,11 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['customers'] })
       onClose()
       reset()
     },
-    onError: (e: AxiosError<{ detail: string }>) => setErr(e.response?.data?.detail ?? 'Error al crear la orden'),
+    onError: (e) => setErr(errorMessage(e, 'Error al crear la orden')),
   })
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0)
@@ -148,6 +180,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!customerEmail.trim()) { setErr('Email del cliente es requerido'); return }
+    if (!searched && !foundCustomer) { setErr('Busca el cliente por email antes de crear la orden'); return }
     if (!foundCustomer && !newCustomerName.trim()) { setErr('Nombre del cliente es requerido para crear nuevo cliente'); return }
     createOrderMut.mutate()
   }
@@ -156,7 +189,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 
   return (
-    <Modal open={open} onClose={() => { onClose(); reset() }} title="Nueva orden POS" size="lg">
+    <Modal open={open} onClose={() => { onClose(); reset() }} title="Nueva orden POS" size="lg" dismissable={false}>
       {step === 1 ? (
         <form onSubmit={handleNext} className="space-y-5">
           {/* Event selector */}
@@ -241,7 +274,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
                 label=""
                 type="email"
                 value={customerEmail}
-                onChange={e => { setCustomerEmail(e.target.value); setFoundCustomer(null) }}
+                onChange={e => { setCustomerEmail(e.target.value); setFoundCustomer(null); setSearched(false) }}
                 placeholder="email@cliente.com"
                 className="flex-1"
               />
@@ -251,7 +284,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
                 disabled={searching}
                 className="mt-0 flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-300 text-sm hover:bg-gray-50"
               >
-                <Search className="h-4 w-4" /> Buscar
+                <Search className="h-4 w-4" /> {searching ? 'Buscando...' : 'Buscar'}
               </button>
             </div>
             {customerEmail && foundCustomer && (
@@ -259,7 +292,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
                 <p className="text-green-800 font-medium">Cliente encontrado: {foundCustomer.full_name}</p>
               </div>
             )}
-            {customerEmail && foundCustomer === null && customers !== undefined && (
+            {customerEmail && searched && foundCustomer === null && (
               <div className="mt-2 space-y-2">
                 <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">Cliente no encontrado — se creará uno nuevo</p>
                 <Input id="new-name" label="Nombre completo *" value={newCustomerName} onChange={e => setNewCustomerName(e.target.value)} />
