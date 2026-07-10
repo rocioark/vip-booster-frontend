@@ -13,15 +13,22 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as typeof error.config & { _retry?: boolean }
-    const isAuthEndpoint = original?.url?.includes('/auth/')
-    if (error.response?.status === 401 && !original?._retry && !isAuthEndpoint) {
+    const url = original?.url ?? ''
+    // login/refresh/logout no deben reintentarse a sí mismos, pero un 401 de
+    // /auth/me sí es recuperable renovando la sesión con la cookie vb_refresh
+    const canRecover = !url.includes('/auth/') || url.includes('/auth/me')
+    if (error.response?.status === 401 && !original?._retry && canRecover) {
       original._retry = true
       try {
         await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true })
         return api(original)
       } catch {
-        clearAuth()
-        if (typeof window !== 'undefined') window.location.href = '/login'
+        // /auth/me también corre en páginas públicas (AuthProvider global):
+        // ahí "sin sesión" es normal y no debe forzar redirect a /login
+        if (!url.includes('/auth/me')) {
+          clearAuth()
+          if (typeof window !== 'undefined') window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
