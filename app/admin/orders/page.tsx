@@ -55,6 +55,11 @@ function OrderRow({ order }: { order: Order }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); setShowCancel(false) },
   })
 
+  const isPending = order.payment_status === 'pending'
+  // Una orden completada también se puede cancelar: el backend la pasa a
+  // 'refunded' (registra el monto a devolver) y cancela sus tickets.
+  const isRefund = order.payment_status === 'completed'
+
   return (
     <>
       <tr className="hover:bg-gray-50 transition-colors">
@@ -71,15 +76,16 @@ function OrderRow({ order }: { order: Order }) {
             <Button variant="ghost" size="sm" onClick={() => setOpen(v => !v)}>
               {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
-            {order.payment_status === 'pending' && (
-              <>
-                <Button variant="primary" size="sm" loading={confirmMut.isPending} onClick={() => confirmMut.mutate()}>
-                  <CheckCircle className="h-4 w-4" />
-                </Button>
-                <Button variant="danger" size="sm" onClick={() => setShowCancel(v => !v)}>
-                  <XCircle className="h-4 w-4" />
-                </Button>
-              </>
+            {isPending && (
+              <Button variant="primary" size="sm" loading={confirmMut.isPending} onClick={() => confirmMut.mutate()}>
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {(isPending || isRefund) && (
+              <Button variant="danger" size="sm" title={isRefund ? 'Cancelar y reembolsar' : 'Cancelar orden'}
+                onClick={() => setShowCancel(v => !v)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
             )}
           </div>
         </td>
@@ -88,16 +94,24 @@ function OrderRow({ order }: { order: Order }) {
       {showCancel && (
         <tr>
           <td colSpan={7} className="bg-red-50 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <input
-                className="flex-1 rounded border border-red-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
-                placeholder="Motivo de cancelación"
-                value={cancelReason}
-                onChange={e => setCancelReason(e.target.value)}
-              />
-              <Button variant="danger" size="sm" loading={cancelMut.isPending} disabled={!cancelReason.trim()} onClick={() => cancelMut.mutate()}>
-                Confirmar cancelación
-              </Button>
+            <div className="space-y-2">
+              {isRefund && (
+                <p className="text-xs text-red-700">
+                  La orden pasará a <span className="font-semibold">Reembolsada</span> por{' '}
+                  <span className="font-semibold">{fmt(Number(order.total))}</span> y todos sus tickets se cancelarán.
+                </p>
+              )}
+              <div className="flex items-center gap-3">
+                <input
+                  className="flex-1 rounded border border-red-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"
+                  placeholder={isRefund ? 'Motivo del reembolso' : 'Motivo de cancelación'}
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                />
+                <Button variant="danger" size="sm" loading={cancelMut.isPending} disabled={!cancelReason.trim()} onClick={() => cancelMut.mutate()}>
+                  {isRefund ? 'Confirmar reembolso' : 'Confirmar cancelación'}
+                </Button>
+              </div>
             </div>
           </td>
         </tr>
