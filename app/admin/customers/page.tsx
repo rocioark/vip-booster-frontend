@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { customersApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useVenue } from '@/hooks/useVenueContext'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Header } from '@/components/layout/Header'
@@ -25,27 +26,27 @@ export default function CustomersPage() {
   const isSuperAdmin = user?.role === 'super_admin'
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  // Búsqueda en el servidor (ILIKE sobre nombre/email/teléfono) con
+  // debounce: busca en TODOS los clientes, no solo en la página cargada.
+  const debouncedSearch = useDebounce(search.trim())
 
   const { data, isLoading } = useQuery<Customer[]>({
-    queryKey: ['customers', effectiveVenueId, page],
+    queryKey: ['customers', effectiveVenueId, page, debouncedSearch],
     queryFn: async () => {
-      const params: { venue_id?: string; skip: number; limit: number } = {
+      const params: { venue_id?: string; search?: string; skip: number; limit: number } = {
         skip: page * PAGE_SIZE,
         limit: PAGE_SIZE,
       }
       if (effectiveVenueId) params.venue_id = effectiveVenueId
+      if (debouncedSearch) params.search = debouncedSearch
       const r = await customersApi.list(params)
       return r.data
     },
     enabled: !!user && (isSuperAdmin || !!effectiveVenueId),
+    placeholderData: prev => prev,
   })
 
-  const filtered = (data ?? []).filter(c =>
-    !search ||
-    c.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone ?? '').includes(search)
-  )
+  const filtered = data ?? []
 
   return (
     <div>
@@ -134,7 +135,11 @@ export default function CustomersPage() {
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center">
                       <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No hay clientes registrados aún</p>
+                      <p className="text-sm text-gray-500">
+                        {debouncedSearch
+                          ? `Sin resultados para "${debouncedSearch}"`
+                          : 'No hay clientes registrados aún'}
+                      </p>
                     </td>
                   </tr>
                 )}
