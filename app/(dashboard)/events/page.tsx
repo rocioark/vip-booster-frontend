@@ -16,11 +16,11 @@ import { es } from 'date-fns/locale'
 import { AxiosError } from 'axios'
 
 type EventStatus = Event['status']
-const statusVariant: Record<EventStatus, 'yellow' | 'green' | 'red' | 'gray'> = {
-  draft: 'yellow', published: 'green', sold_out: 'gray', cancelled: 'red',
+const statusVariant: Record<EventStatus, 'yellow' | 'green' | 'red' | 'gray' | 'blue'> = {
+  draft: 'yellow', published: 'green', sold_out: 'gray', cancelled: 'red', completed: 'blue',
 }
 const statusLabel: Record<EventStatus, string> = {
-  draft: 'Borrador', published: 'Publicado', sold_out: 'Sold Out', cancelled: 'Cancelado',
+  draft: 'Borrador', published: 'Publicado', sold_out: 'Sold Out', cancelled: 'Cancelado', completed: 'Finalizado',
 }
 
 function fmt(n: number) {
@@ -170,7 +170,7 @@ function EventRow({ event }: { event: Event }) {
             <Button variant="ghost" size="sm" onClick={() => setPanel(p => p === 'packages' ? null : 'packages')} title="Packages VIP">
               <Package className="h-4 w-4" />
             </Button>
-            {event.status !== 'cancelled' && event.status !== 'sold_out' && (
+            {event.status !== 'cancelled' && event.status !== 'sold_out' && event.status !== 'completed' && (
               <Button variant="secondary" size="sm" loading={toggleStatus.isPending} onClick={() => toggleStatus.mutate()}>
                 {event.status === 'draft' ? 'Publicar' : 'Borrador'}
               </Button>
@@ -315,7 +315,7 @@ export default function EventsPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex gap-2 flex-wrap flex-1">
-            {(['all', 'draft', 'published', 'sold_out', 'cancelled'] as const).map(s => (
+            {(['all', 'draft', 'published', 'sold_out', 'completed', 'cancelled'] as const).map(s => (
               <button key={s} onClick={() => setFilter(s)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filter === s ? 'bg-brand-600 text-white' : 'bg-white border border-gray-300 text-gray-600 hover:border-brand-400'}`}>
                 {s === 'all' ? 'Todos' : statusLabel[s]}

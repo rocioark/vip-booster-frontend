@@ -34,7 +34,7 @@ export interface Event {
   doors_open_time: string | null
   capacity: number | null
   venue_location: string | null
-  status: 'draft' | 'published' | 'sold_out' | 'cancelled'
+  status: 'draft' | 'published' | 'sold_out' | 'cancelled' | 'completed'
   sold_count?: number
   available?: number
   created_at: string
