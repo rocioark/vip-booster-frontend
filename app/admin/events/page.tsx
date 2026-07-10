@@ -127,7 +127,7 @@ function VipPackagesPanel({ eventId }: { eventId: string }) {
   )
 }
 
-function EventRow({ event }: { event: Event }) {
+function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) => void }) {
   const [panel, setPanel] = useState<null | 'analytics' | 'packages'>(null)
   const qc = useQueryClient()
 
@@ -170,6 +170,9 @@ function EventRow({ event }: { event: Event }) {
                 {event.status === 'draft' ? 'Publicar' : 'Borrador'}
               </Button>
             )}
+            <Button variant="ghost" size="sm" title="Eliminar evento" onClick={() => onDelete(event)}>
+              <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500 transition-colors" />
+            </Button>
           </div>
         </td>
       </tr>
@@ -274,9 +277,12 @@ const PAGE_SIZE = 20
 export default function EventsPage() {
   const { user } = useAuth()
   const { effectiveVenueId } = useVenue()
+  const qc = useQueryClient()
   const [filter, setFilter] = useState<'all' | EventStatus>('all')
   const [page, setPage] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
+  const [deleteErr, setDeleteErr] = useState('')
 
   const { data, isLoading } = useQuery<Event[]>({
     queryKey: ['events', effectiveVenueId, page],
@@ -285,6 +291,18 @@ export default function EventsPage() {
       return res.data
     },
     enabled: !!user && !!effectiveVenueId,
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => eventsApi.delete(id),
+    onSuccess: () => {
+      setEventToDelete(null)
+      qc.invalidateQueries({ queryKey: ['events'] })
+    },
+    onError: (e: AxiosError<{ detail: string }>) => {
+      const detail = e.response?.data?.detail
+      setDeleteErr(typeof detail === 'string' ? detail : 'No se pudo eliminar el evento')
+    },
   })
 
   const filtered = filter === 'all' ? (data ?? []) : (data ?? []).filter(e => e.status === filter)
@@ -328,7 +346,10 @@ export default function EventsPage() {
                   ? Array.from({ length: 4 }).map((_, i) => (
                       <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (<td key={j} className="px-4 py-3"><div className="h-4 bg-gray-200 rounded animate-pulse" /></td>))}</tr>
                     ))
-                  : filtered.map(event => <EventRow key={event.id} event={event} />)
+                  : filtered.map(event => (
+                      <EventRow key={event.id} event={event}
+                        onDelete={ev => { setDeleteErr(''); setEventToDelete(ev) }} />
+                    ))
                 }
                 {!isLoading && filtered.length === 0 && (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">
@@ -351,6 +372,24 @@ export default function EventsPage() {
       {effectiveVenueId && (
         <CreateEventModal open={showCreate} onClose={() => setShowCreate(false)} venueId={effectiveVenueId} />
       )}
+
+      <Modal open={!!eventToDelete} onClose={() => setEventToDelete(null)} title="Eliminar evento" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            ¿Seguro que quieres eliminar el evento{' '}
+            <span className="font-semibold text-gray-900">“{eventToDelete?.name}”</span>?
+            Esta acción no se puede deshacer.
+          </p>
+          {deleteErr && <p className="text-sm text-red-600">{deleteErr}</p>}
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" size="sm" onClick={() => setEventToDelete(null)}>Cancelar</Button>
+            <Button variant="danger" size="sm" loading={deleteMut.isPending}
+              onClick={() => eventToDelete && deleteMut.mutate(eventToDelete.id)}>
+              Eliminar evento
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
