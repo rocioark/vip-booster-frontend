@@ -77,7 +77,10 @@ export default function DashboardPage() {
         </div>
 
         <Card>
-          <CardHeader title="Revenue últimos 30 días" />
+          <CardHeader
+            title="Revenue últimos 30 días"
+            action={<span className="text-xs text-gray-400">(por fecha de pago)</span>}
+          />
           <CardBody>
             {isLoading ? (
               <div className="h-8 w-40 bg-gray-200 rounded animate-pulse" />
@@ -102,7 +105,7 @@ export default function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v: number) => fmt(v)} />
-                    <Bar dataKey="revenue" name="Revenue" fill="#c026d3" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" name="Revenue" fill="#c026d3" radius={[4, 4, 0, 0]} maxBarSize={72} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
