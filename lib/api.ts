@@ -58,6 +58,8 @@ export const venuesApi = {
   get: (id: string) => api.get(`/venues/${id}`),
   create: (data: unknown) => api.post('/venues', data),
   update: (id: string, data: unknown) => api.patch(`/venues/${id}`, data),
+  // Alta manual (super admin): venue + usuario venue_owner en una operación
+  onboard: (data: unknown) => api.post('/venues/onboard', data),
 }
 
 // ── Events ───────────────────────────────────────────────────

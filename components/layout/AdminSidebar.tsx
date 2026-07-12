@@ -16,6 +16,11 @@ const nav = [
   { href: '/admin/check-in',   label: 'Check-in',     icon: ScanLine },
 ]
 
+// Solo visible para super_admin (el backend igual protege con 403)
+const superAdminNav = [
+  { href: '/admin/venues', label: 'Venues', icon: Building2 },
+]
+
 export function AdminSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
@@ -30,7 +35,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {nav.map(({ href, label, icon: Icon }) => {
+        {[...nav, ...(isSuperAdmin ? superAdminNav : [])].map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link

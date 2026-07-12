@@ -12,6 +12,9 @@ export interface LoginResponse {
   user: User
 }
 
+export type VenuePlan = 'starter' | 'grow' | 'pro_monthly' | 'pro_annual'
+export type SubscriptionStatus = 'active' | 'suspended' | 'cancelled' | 'pending'
+
 export interface Venue {
   id: string
   name: string
@@ -20,6 +23,25 @@ export interface Venue {
   owner_email: string
   is_active: boolean
   created_at: string
+  plan?: VenuePlan
+  subscription_status?: SubscriptionStatus
+  // Solo lo devuelve GET /venues (listado super admin)
+  tickets_this_month?: number | null
+}
+
+export const PLAN_LABELS: Record<VenuePlan, string> = {
+  starter: 'Starter',
+  grow: 'Grow',
+  pro_monthly: 'Pro Mensual',
+  pro_annual: 'Pro Anual',
+}
+
+// Límite comercial de boletas por mes calendario (null = ilimitado)
+export const PLAN_MONTHLY_LIMIT: Record<VenuePlan, number | null> = {
+  starter: 50,
+  grow: 500,
+  pro_monthly: 2000,
+  pro_annual: null,
 }
 
 export interface Event {
