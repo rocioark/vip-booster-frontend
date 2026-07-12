@@ -37,6 +37,14 @@ interface PricingPlan {
   savings: string | null
 }
 
+// Valor del plan en la API para el registro self-service
+const PLAN_VALUES: Record<string, string> = {
+  'Starter': 'starter',
+  'Grow': 'grow',
+  'Pro Mensual': 'pro_monthly',
+  'Pro Anual': 'pro_annual',
+}
+
 const pricing: PricingPlan[] = [
   {
     label: 'Starter',
@@ -325,8 +333,8 @@ export default function ParaVenuesPage() {
                   ))}
                 </ul>
 
-                <a
-                  href="#contacto"
+                <Link
+                  href={`/registro?plan=${PLAN_VALUES[plan.label] ?? 'starter'}`}
                   className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition ${
                     plan.highlighted
                       ? 'bg-[#D946EF] text-white shadow-lg shadow-[#D946EF]/30 hover:-translate-y-0.5 hover:bg-fuchsia-500'
@@ -334,7 +342,7 @@ export default function ParaVenuesPage() {
                   }`}
                 >
                   {plan.cta}
-                </a>
+                </Link>
               </article>
             ))}
           </div>

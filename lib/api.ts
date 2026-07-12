@@ -60,6 +60,9 @@ export const venuesApi = {
   update: (id: string, data: unknown) => api.patch(`/venues/${id}`, data),
   // Alta manual (super admin): venue + usuario venue_owner en una operación
   onboard: (data: unknown) => api.post('/venues/onboard', data),
+  // Registro self-service (público): Starter activa de inmediato,
+  // planes de pago quedan pendientes de activación
+  register: (data: unknown) => api.post('/public/venues/register', data),
 }
 
 // ── Events ───────────────────────────────────────────────────
