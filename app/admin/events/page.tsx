@@ -205,7 +205,7 @@ function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) 
   )
 }
 
-function CreateEventModal({ open, onClose, venueId }: { open: boolean; onClose: () => void; venueId: string }) {
+function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean; onClose: () => void; venueId: string; onWarning?: (msg: string) => void }) {
   const qc = useQueryClient()
   const [form, setForm] = useState({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', venue_location: '', description: '' })
   const [err, setErr] = useState('')
@@ -222,7 +222,9 @@ function CreateEventModal({ open, onClose, venueId }: { open: boolean; onClose: 
       venue_location: form.venue_location || null,
       description: form.description || null,
     }),
-    onSuccess: () => {
+    onSuccess: (r) => {
+      // Super admin fuera del plan del venue: se crea pero se advierte
+      if (r.data?.plan_warning && onWarning) onWarning(r.data.plan_warning)
       qc.invalidateQueries({ queryKey: ['events'] })
       onClose()
       setForm({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', venue_location: '', description: '' })
@@ -283,6 +285,7 @@ export default function EventsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
   const [deleteErr, setDeleteErr] = useState('')
+  const [planWarning, setPlanWarning] = useState('')
 
   const { data, isLoading } = useQuery<Event[]>({
     queryKey: ['events', effectiveVenueId, page],
@@ -311,6 +314,12 @@ export default function EventsPage() {
     <div>
       <Header title="Eventos" />
       <div className="p-6 space-y-4">
+        {planWarning && (
+          <div className="flex items-start justify-between gap-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <p><strong>Evento creado con advertencia:</strong> {planWarning}</p>
+            <button onClick={() => setPlanWarning('')} className="text-amber-500 hover:text-amber-700 font-bold shrink-0">✕</button>
+          </div>
+        )}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex gap-2 flex-wrap flex-1">
             {(['all', 'draft', 'published', 'sold_out', 'completed', 'cancelled'] as const).map(s => (
@@ -370,7 +379,7 @@ export default function EventsPage() {
       </div>
 
       {effectiveVenueId && (
-        <CreateEventModal open={showCreate} onClose={() => setShowCreate(false)} venueId={effectiveVenueId} />
+        <CreateEventModal open={showCreate} onClose={() => setShowCreate(false)} venueId={effectiveVenueId} onWarning={setPlanWarning} />
       )}
 
       <Modal open={!!eventToDelete} onClose={() => setEventToDelete(null)} title="Eliminar evento" size="sm">

@@ -61,6 +61,8 @@ export interface Event {
   available?: number
   created_at: string
   updated_at: string
+  // Presente solo cuando un super_admin operó fuera del plan del venue
+  plan_warning?: string | null
 }
 
 export interface VipPackage {
