@@ -22,8 +22,22 @@ Este repo es el panel de administración + tienda pública + check-in.
 | Pro Mensual | $250.000 COP/mes + 9% | hasta 2.000 boletas/mes |
 | Pro Anual | $2.400.000 COP/año + 9% | ilimitado |
 
-El backend hoy solo valida la capacidad por evento (50/500/2000/∞) al crearlo; no hay contador
-mensual. El backend devuelve mensajes de error de plan en el `detail` del 400 — mostrarlos al usuario.
+Los límites están aplicados en el backend (capacidad por evento en POST/PATCH, límite mensual de
+boletas en los 3 canales de venta, Starter solo eventos gratuitos). Los errores llegan en el
+`detail` del 400 — mostrarlos al usuario. Si un `super_admin` opera fuera del plan, el backend lo
+permite y devuelve `plan_warning` en la respuesta — mostrarlo como banner (patrón en
+`app/admin/events/page.tsx`).
+
+Páginas del ciclo de venues:
+- `/registro` (pública): registro self-service con selección de plan. Starter → auto-login;
+  planes de pago → pantalla "te contactaremos" + email vía `/api/venue-lead` (Resend).
+- `/admin/venues` (solo super_admin): listado con boletas del mes, cambio de plan,
+  activar/suspender, alta manual (POST /venues/onboard).
+- `/admin/mi-venue` (venue_owner): perfil público editable (descripción, logo, redes); plan solo
+  lectura + "Quiero cambiar de plan" → email vía `/api/plan-change-request` (Resend).
+- Rutas Resend en `app/api/*` (server-side, requieren `RESEND_API_KEY`): `contact`, `venue-lead`,
+  `plan-change-request`. Los labels/límites de planes viven en `lib/types.ts`
+  (`PLAN_LABELS`, `PLAN_MONTHLY_LIMIT`).
 
 ## Roles (los devuelve el backend en minúscula)
 

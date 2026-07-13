@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, ShoppingCart, ScanLine, Users, Tag, LogOut, Building2 } from 'lucide-react'
+import { LayoutDashboard, CalendarDays, ShoppingCart, ScanLine, Users, Tag, LogOut, Building2, Store } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '@/hooks/useAuth'
 import { useVenue } from '@/hooks/useVenueContext'
@@ -21,6 +21,11 @@ const superAdminNav = [
   { href: '/admin/venues', label: 'Venues', icon: Building2 },
 ]
 
+// Solo para venue_owner: perfil de su venue y plan
+const ownerNav = [
+  { href: '/admin/mi-venue', label: 'Mi venue', icon: Store },
+]
+
 export function AdminSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
@@ -35,7 +40,11 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {[...nav, ...(isSuperAdmin ? superAdminNav : [])].map(({ href, label, icon: Icon }) => {
+        {[
+          ...nav,
+          ...(isSuperAdmin ? superAdminNav : []),
+          ...(user?.role === 'venue_owner' ? ownerNav : []),
+        ].map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
