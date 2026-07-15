@@ -171,8 +171,8 @@ export default function MiVenuePage() {
           </form>
         </Card>
 
-        {/* Plan (solo lectura) */}
-        <Card>
+        {/* Plan (solo lectura). id="plan": destino del botón "Mejorar mi plan" */}
+        <Card className="scroll-mt-6" id="plan">
           <div className="p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">Tu plan</h2>
             <div className="flex items-center justify-between">

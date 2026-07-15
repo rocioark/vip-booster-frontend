@@ -5,6 +5,7 @@ import { eventsApi, vipPackagesApi, customersApi, ordersApi } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PlanLimitHint } from '@/components/ui/PlanLimitHint'
 import type { Event, VipPackage, Customer } from '@/lib/types'
 import { Plus, Minus, Search } from 'lucide-react'
 import { AxiosError } from 'axios'
@@ -337,7 +338,12 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
             <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t border-gray-200"><span>Total</span><span>{fmt(total)}</span></div>
           </div>
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {err && (
+            <div className="space-y-1">
+              <p className="text-sm text-red-600">{err}</p>
+              <PlanLimitHint message={err} />
+            </div>
+          )}
           <div className="flex justify-between pt-2">
             <Button type="button" variant="secondary" onClick={() => { setStep(1); setErr('') }}>← Volver</Button>
             <Button type="submit" loading={createOrderMut.isPending}>Crear orden</Button>

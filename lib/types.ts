@@ -183,6 +183,12 @@ export interface Discount {
   created_at: string
 }
 
+export interface City {
+  id: string
+  name: string
+  country: string
+}
+
 export interface PublicVenue {
   id: string
   name: string

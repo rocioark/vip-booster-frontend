@@ -1,8 +1,8 @@
 import { clsx } from 'clsx'
 
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+export function Card({ children, className, id }: { children: React.ReactNode; className?: string; id?: string }) {
   return (
-    <div className={clsx('bg-white rounded-xl border border-gray-200 shadow-sm', className)}>
+    <div id={id} className={clsx('bg-white rounded-xl border border-gray-200 shadow-sm', className)}>
       {children}
     </div>
   )

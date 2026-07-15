@@ -84,6 +84,13 @@ export const vipPackagesApi = {
   delete: (id: string) => api.delete(`/vip-packages/${id}`),
 }
 
+// ── Cities (catálogo de ubicaciones de eventos) ──────────────
+export const citiesApi = {
+  list: (country?: string) => api.get('/cities', { params: country ? { country } : undefined }),
+  // Solo super admin
+  create: (data: { name: string; country?: string }) => api.post('/cities', data),
+}
+
 // ── Customers ────────────────────────────────────────────────
 export const customersApi = {
   list: (params?: { venue_id?: string; email?: string; search?: string; skip?: number; limit?: number }) =>

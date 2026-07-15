@@ -1,7 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { eventsApi, analyticsApi, vipPackagesApi } from '@/lib/api'
+import { eventsApi, analyticsApi, vipPackagesApi, citiesApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useVenue } from '@/hooks/useVenueContext'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import type { Event, EventAnalytics, VipPackage } from '@/lib/types'
+import type { City, Event, EventAnalytics, VipPackage } from '@/lib/types'
+import { PlanLimitHint } from '@/components/ui/PlanLimitHint'
 import { BarChart2, ChevronDown, ChevronUp, Plus, Package, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -205,10 +206,35 @@ function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) 
   )
 }
 
+const COUNTRIES = ['Colombia']
+
 function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean; onClose: () => void; venueId: string; onWarning?: (msg: string) => void }) {
   const qc = useQueryClient()
-  const [form, setForm] = useState({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', venue_location: '', description: '' })
+  const { user } = useAuth()
+  const [form, setForm] = useState({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', country: 'Colombia', city: '', description: '' })
   const [err, setErr] = useState('')
+  const [newCity, setNewCity] = useState('')
+
+  const { data: cities } = useQuery<City[]>({
+    queryKey: ['cities', form.country],
+    queryFn: async () => { const r = await citiesApi.list(form.country); return r.data },
+    enabled: open,
+  })
+
+  // Solo el super admin puede agregar ciudades que falten en el catálogo
+  const addCityMut = useMutation({
+    mutationFn: () => citiesApi.create({ name: newCity.trim(), country: form.country }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['cities'] })
+      setForm(f => ({ ...f, city: r.data.name }))
+      setNewCity('')
+      setErr('')
+    },
+    onError: (e: AxiosError<{ detail: string }>) => {
+      const detail = e.response?.data?.detail
+      setErr(typeof detail === 'string' ? detail : 'No se pudo agregar la ciudad')
+    },
+  })
 
   const createMut = useMutation({
     mutationFn: () => eventsApi.create({
@@ -219,7 +245,7 @@ function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean
       event_date: form.event_date,
       event_start_time: form.event_start_time,
       capacity: form.capacity ? Number(form.capacity) : null,
-      venue_location: form.venue_location || null,
+      venue_location: form.city ? `${form.city}, ${form.country}` : null,
       description: form.description || null,
     }),
     onSuccess: (r) => {
@@ -227,7 +253,7 @@ function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean
       if (r.data?.plan_warning && onWarning) onWarning(r.data.plan_warning)
       qc.invalidateQueries({ queryKey: ['events'] })
       onClose()
-      setForm({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', venue_location: '', description: '' })
+      setForm({ name: '', slug: '', artist_name: '', event_date: '', event_start_time: '20:00', capacity: '', country: 'Colombia', city: '', description: '' })
       setErr('')
     },
     onError: (e: AxiosError<{ detail: string }>) => {
@@ -256,7 +282,35 @@ function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean
           <Input id="ev-date" label="Fecha *" type="date" value={form.event_date} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
           <Input id="ev-time" label="Hora de inicio *" type="time" value={form.event_start_time} onChange={e => setForm(f => ({ ...f, event_start_time: e.target.value }))} />
           <Input id="ev-cap" label="Capacidad" type="number" min={1} value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))} placeholder="5000" />
-          <Input id="ev-loc" label="Ubicación" value={form.venue_location} onChange={e => setForm(f => ({ ...f, venue_location: e.target.value }))} placeholder="Bogotá, Colombia" className="col-span-2" />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ev-country" className="text-sm font-medium text-gray-700">País</label>
+            <select id="ev-country" value={form.country}
+              onChange={e => setForm(f => ({ ...f, country: e.target.value, city: '' }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ev-city" className="text-sm font-medium text-gray-700">Ciudad</label>
+            <select id="ev-city" value={form.city}
+              onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+              <option value="">Sin especificar</option>
+              {(cities ?? []).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
+          </div>
+          {user?.role === 'super_admin' && (
+            <div className="col-span-2 flex items-end gap-2">
+              <div className="flex-1">
+                <Input id="ev-new-city" label="¿Falta una ciudad? (solo super admin)" value={newCity}
+                  onChange={e => setNewCity(e.target.value)} placeholder="Girardot" />
+              </div>
+              <Button type="button" variant="secondary" size="sm" loading={addCityMut.isPending}
+                disabled={!newCity.trim()} onClick={() => addCityMut.mutate()}>
+                Agregar ciudad
+              </Button>
+            </div>
+          )}
         </div>
         <div>
           <label className="text-sm font-medium text-gray-700">Descripción</label>
@@ -264,7 +318,12 @@ function CreateEventModal({ open, onClose, venueId, onWarning }: { open: boolean
             className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="Descripción del evento..." />
         </div>
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {err && (
+          <div className="space-y-1">
+            <p className="text-sm text-red-600">{err}</p>
+            <PlanLimitHint message={err} />
+          </div>
+        )}
         <div className="flex gap-3 justify-end pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button type="submit" loading={createMut.isPending}>Crear evento</Button>
