@@ -220,7 +220,7 @@ export function CreateOrderModal({ open, onClose, venueId }: Props) {
                     <div key={pkg.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${pkg.is_sold_out ? 'opacity-50 bg-gray-50' : 'bg-white'}`}>
                       <div>
                         <p className="text-sm font-medium">{pkg.name}</p>
-                        <p className="text-xs text-gray-500">{fmt(Number(pkg.price))} · {pkg.quantity_available} disponibles</p>
+                        <p className="text-xs text-gray-500">{Number(pkg.price) > 0 ? fmt(Number(pkg.price)) : 'Gratis'} · {pkg.quantity_available} disponibles</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {item && (

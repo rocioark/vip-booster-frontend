@@ -33,16 +33,22 @@ function slugify(str: string) {
   return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
 }
 
-function VipPackagesPanel({ eventId }: { eventId: string }) {
+function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: number | null }) {
   const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', tier_level: 1, price: '', quantity_total: '', description: '' })
   const [err, setErr] = useState('')
+  const [warning, setWarning] = useState('')
 
   const { data: pkgs, isLoading } = useQuery<VipPackage[]>({
     queryKey: ['vip-packages', eventId],
     queryFn: async () => { const r = await vipPackagesApi.list(eventId); return r.data },
   })
+
+  // Cupos totales vs capacidad: se permite exceder (el freno real es la
+  // venta), pero se advierte.
+  const totalQuota = (pkgs ?? []).reduce((s, p) => s + p.quantity_total, 0)
+  const quotaExceeded = capacity != null && totalQuota > capacity
 
   const createMut = useMutation({
     mutationFn: () => vipPackagesApi.create({
@@ -54,7 +60,9 @@ function VipPackagesPanel({ eventId }: { eventId: string }) {
       description: form.description || null,
       features: {},
     }),
-    onSuccess: () => {
+    onSuccess: (r) => {
+      // Super admin fuera del plan del venue: se crea pero se advierte
+      setWarning(r.data?.plan_warning ?? '')
       qc.invalidateQueries({ queryKey: ['vip-packages', eventId] })
       setForm({ name: '', tier_level: 1, price: '', quantity_total: '', description: '' })
       setShowForm(false)
@@ -70,7 +78,8 @@ function VipPackagesPanel({ eventId }: { eventId: string }) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!form.name || !form.price || !form.quantity_total) { setErr('Nombre, precio y cantidad son requeridos'); return }
+    // Precio 0 es válido: paquete gratuito (lo único permitido en Starter)
+    if (!form.name || form.price === '' || !form.quantity_total) { setErr('Nombre, precio y cantidad son requeridos'); return }
     createMut.mutate()
   }
 
@@ -83,16 +92,34 @@ function VipPackagesPanel({ eventId }: { eventId: string }) {
         </Button>
       </div>
 
+      {warning && (
+        <div className="flex items-start justify-between gap-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p><strong>Package creado con advertencia:</strong> {warning}</p>
+          <button onClick={() => setWarning('')} className="text-amber-500 hover:text-amber-700 font-bold shrink-0">✕</button>
+        </div>
+      )}
+      {quotaExceeded && (
+        <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          La suma de cupos ({totalQuota}) supera la capacidad del evento ({capacity}).
+          No es un error, pero solo se venderán hasta {capacity} boletas en total.
+        </p>
+      )}
+
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Input id="pkg-name" label="Nombre" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="VIP Gold" />
             <Input id="pkg-tier" label="Tier level" type="number" min={1} value={form.tier_level} onChange={e => setForm(f => ({ ...f, tier_level: Number(e.target.value) }))} />
-            <Input id="pkg-price" label="Precio (COP)" type="number" min={1} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="250000" />
+            <Input id="pkg-price" label="Precio (COP, 0 = gratis)" type="number" min={0} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="250000" />
             <Input id="pkg-qty" label="Cantidad total" type="number" min={1} value={form.quantity_total} onChange={e => setForm(f => ({ ...f, quantity_total: e.target.value }))} placeholder="50" />
           </div>
           <Input id="pkg-desc" label="Descripción (opcional)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          {err && <p className="text-xs text-red-600">{err}</p>}
+          {err && (
+            <div className="space-y-1">
+              <p className="text-xs text-red-600">{err}</p>
+              <PlanLimitHint message={err} />
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Button type="button" variant="secondary" size="sm" onClick={() => { setShowForm(false); setErr('') }}>Cancelar</Button>
             <Button type="submit" size="sm" loading={createMut.isPending}>Crear package</Button>
@@ -108,7 +135,7 @@ function VipPackagesPanel({ eventId }: { eventId: string }) {
             <div key={pkg.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2">
               <div>
                 <p className="text-sm font-medium text-gray-900">{pkg.name}</p>
-                <p className="text-xs text-gray-500">{fmt(pkg.price)} · {pkg.quantity_sold}/{pkg.quantity_total} vendidos</p>
+                <p className="text-xs text-gray-500">{Number(pkg.price) > 0 ? fmt(pkg.price) : 'Gratis'} · {pkg.quantity_sold}/{pkg.quantity_total} vendidos</p>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded-full ${pkg.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -198,7 +225,7 @@ function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) 
       {panel === 'packages' && (
         <tr>
           <td colSpan={6} className="bg-gray-50 px-4 py-4">
-            <VipPackagesPanel eventId={event.id} />
+            <VipPackagesPanel eventId={event.id} capacity={event.capacity} />
           </td>
         </tr>
       )}

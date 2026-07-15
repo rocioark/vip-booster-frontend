@@ -12,6 +12,11 @@ function fmt(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 }
 
+// Precio 0 = paquete gratuito
+function fmtPrice(n: number) {
+  return Number(n) > 0 ? fmt(n) : 'Gratis'
+}
+
 const PAYMENT_METHODS = [
   { value: 'card', label: 'Tarjeta crédito/débito' },
   { value: 'nequi', label: 'Nequi' },
@@ -168,7 +173,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
                 <p className="text-lg font-bold text-white">{pkg.name}</p>
                 <p className="text-sm text-gray-400">Tier {pkg.tier_level}</p>
               </div>
-              <p className="text-xl font-black text-brand-400">{fmt(pkg.price)}</p>
+              <p className="text-xl font-black text-brand-400">{fmtPrice(pkg.price)}</p>
             </div>
           </div>
         )}

@@ -17,6 +17,11 @@ function fmt(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n)
 }
 
+// Precio 0 = paquete gratuito
+function fmtPrice(n: number) {
+  return Number(n) > 0 ? fmt(n) : 'Gratis'
+}
+
 function PackageCard({ pkg, selected, onSelect }: { pkg: VipPackage; selected: boolean; onSelect: () => void }) {
   const features = Object.entries(pkg.features ?? {})
   const soldPct = Math.min(100, Math.round(pkg.sold_percentage ?? 0))
@@ -44,7 +49,7 @@ function PackageCard({ pkg, selected, onSelect }: { pkg: VipPackage; selected: b
           {pkg.description && <p className="text-sm text-gray-400 mt-1">{pkg.description}</p>}
         </div>
         <div className="text-right shrink-0 ml-4">
-          <p className="text-2xl font-black text-brand-400">{fmt(pkg.price)}</p>
+          <p className="text-2xl font-black text-brand-400">{fmtPrice(pkg.price)}</p>
           {pkg.is_sold_out ? (
             <span className="text-xs font-bold text-red-400">AGOTADO</span>
           ) : (
@@ -193,7 +198,7 @@ export default function EventPage({ params }: PageProps) {
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
             <div>
               <p className="text-sm text-gray-400">{selectedPkg.name}</p>
-              <p className="text-xl font-black text-brand-400">{fmt(selectedPkg.price)}</p>
+              <p className="text-xl font-black text-brand-400">{fmtPrice(selectedPkg.price)}</p>
             </div>
             <button
               onClick={goCheckout}
