@@ -191,6 +191,12 @@ export interface PublicVenue {
 
 export interface PublicVenueDetail extends PublicVenue {
   created_at: string
+  description: string | null
+  logo_url: string | null
+  instagram: string | null
+  facebook: string | null
+  whatsapp: string | null
+  website: string | null
   events: PublicEvent[]
 }
 

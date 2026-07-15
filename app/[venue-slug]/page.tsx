@@ -1,10 +1,11 @@
 'use client'
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
 import type { PublicEvent, PublicVenueDetail } from '@/lib/types'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
-import { CalendarDays, MapPin, Clock, Ticket } from 'lucide-react'
+import { CalendarDays, MapPin, Clock, Ticket, Instagram, Facebook, Globe, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -14,6 +15,35 @@ function fmtDate(d: string) {
 
 function fmtTime(t: string) {
   return t.slice(0, 5)
+}
+
+// Las redes se guardan libres (usuario, @usuario o URL completa): normalizar a URL.
+function instagramUrl(v: string) {
+  return v.startsWith('http') ? v : `https://instagram.com/${v.replace(/^@/, '')}`
+}
+function facebookUrl(v: string) {
+  return v.startsWith('http') ? v : `https://facebook.com/${v}`
+}
+function whatsappUrl(v: string) {
+  return `https://wa.me/${v.replace(/\D/g, '')}`
+}
+function websiteUrl(v: string) {
+  return v.startsWith('http') ? v : `https://${v}`
+}
+
+function SocialLink({ href, label, children }: { href: string; label: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      title={label}
+      className="p-2 rounded-full border border-gray-800 text-gray-400 hover:text-brand-400 hover:border-brand-500 transition-colors"
+    >
+      {children}
+    </a>
+  )
 }
 
 function EventCard({ event, venueSlug }: { event: PublicEvent; venueSlug: string }) {
@@ -119,7 +149,16 @@ export default function VenueStorePage({ params }: PageProps) {
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="text-center mb-12">
-        <Logo className="inline-block h-14 w-14 mb-4" />
+        {/* Logo del venue si lo configuró; si no, la marca de la plataforma */}
+        {data?.logo_url ? (
+          <img
+            src={data.logo_url}
+            alt={`Logo de ${data.name}`}
+            className="inline-block h-20 w-20 rounded-2xl object-cover mb-4 border border-gray-800"
+          />
+        ) : (
+          <Logo className="inline-block h-14 w-14 mb-4" />
+        )}
         {isLoading ? (
           <div className="space-y-2">
             <div className="h-8 w-48 bg-gray-800 rounded-lg mx-auto animate-pulse" />
@@ -128,7 +167,35 @@ export default function VenueStorePage({ params }: PageProps) {
         ) : (
           <>
             <h1 className="text-3xl font-black text-white">{data?.name}</h1>
-            <p className="text-gray-400 mt-1">Tickets VIP exclusivos</p>
+            {data?.description ? (
+              <p className="text-gray-400 mt-2 max-w-2xl mx-auto whitespace-pre-line">{data.description}</p>
+            ) : (
+              <p className="text-gray-400 mt-1">Tickets VIP exclusivos</p>
+            )}
+            {(data?.instagram || data?.facebook || data?.whatsapp || data?.website) && (
+              <div className="flex items-center justify-center gap-3 mt-4">
+                {data?.instagram && (
+                  <SocialLink href={instagramUrl(data.instagram)} label="Instagram">
+                    <Instagram className="h-4 w-4" />
+                  </SocialLink>
+                )}
+                {data?.facebook && (
+                  <SocialLink href={facebookUrl(data.facebook)} label="Facebook">
+                    <Facebook className="h-4 w-4" />
+                  </SocialLink>
+                )}
+                {data?.whatsapp && (
+                  <SocialLink href={whatsappUrl(data.whatsapp)} label="WhatsApp">
+                    <MessageCircle className="h-4 w-4" />
+                  </SocialLink>
+                )}
+                {data?.website && (
+                  <SocialLink href={websiteUrl(data.website)} label="Sitio web">
+                    <Globe className="h-4 w-4" />
+                  </SocialLink>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
