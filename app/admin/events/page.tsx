@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { City, Event, EventAnalytics, VipPackage } from '@/lib/types'
 import { PlanLimitHint } from '@/components/ui/PlanLimitHint'
-import { BarChart2, ChevronDown, ChevronUp, Plus, Package, Trash2 } from 'lucide-react'
+import { BarChart2, ChevronDown, ChevronUp, Plus, Ticket, Trash2, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { AxiosError } from 'axios'
@@ -155,8 +155,9 @@ function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: nu
   )
 }
 
-function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) => void }) {
+function EventRow({ event, onDelete, onPublishNoTickets }: { event: Event; onDelete: (event: Event) => void; onPublishNoTickets: (event: Event) => void }) {
   const [panel, setPanel] = useState<null | 'analytics' | 'packages'>(null)
+  const [checkingTickets, setCheckingTickets] = useState(false)
   const qc = useQueryClient()
 
   const { data: analytics, isFetching } = useQuery<EventAnalytics>({
@@ -169,6 +170,22 @@ function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) 
     mutationFn: () => eventsApi.update(event.id, { status: event.status === 'draft' ? 'published' : 'draft' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
   })
+
+  async function handleToggleStatus() {
+    // Publicar sin boletas confunde (nadie puede registrarse): advertir antes
+    if (event.status === 'draft') {
+      setCheckingTickets(true)
+      try {
+        const r = await vipPackagesApi.list(event.id)
+        if ((r.data as VipPackage[]).length === 0) {
+          onPublishNoTickets(event)
+          return
+        }
+      } catch { /* si la verificación falla, no bloquear la publicación */ }
+      finally { setCheckingTickets(false) }
+    }
+    toggleStatus.mutate()
+  }
 
   const fmtDate = () => {
     try { return format(new Date(event.event_date), "d MMM yyyy", { locale: es }) } catch { return event.event_date }
@@ -186,15 +203,21 @@ function EventRow({ event, onDelete }: { event: Event; onDelete: (event: Event) 
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-1 flex-wrap">
-            <Button variant="ghost" size="sm" onClick={() => setPanel(p => p === 'analytics' ? null : 'analytics')}>
+            <Button variant="ghost" size="sm" title="Boletas y paquetes VIP del evento"
+              className={panel === 'packages' ? 'bg-gray-100' : undefined}
+              onClick={() => setPanel(p => p === 'packages' ? null : 'packages')}>
+              <Ticket className="h-4 w-4" /> Boletas
+            </Button>
+            <Button variant="ghost" size="sm" title="Estadísticas del evento (ventas, ocupación)"
+              className={panel === 'analytics' ? 'bg-gray-100' : undefined}
+              onClick={() => setPanel(p => p === 'analytics' ? null : 'analytics')}>
               <BarChart2 className="h-4 w-4" />
               {panel === 'analytics' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setPanel(p => p === 'packages' ? null : 'packages')}>
-              <Package className="h-4 w-4" />
-            </Button>
             {event.status !== 'cancelled' && event.status !== 'sold_out' && event.status !== 'completed' && (
-              <Button variant="secondary" size="sm" loading={toggleStatus.isPending} onClick={() => toggleStatus.mutate()}>
+              <Button variant="secondary" size="sm" loading={toggleStatus.isPending || checkingTickets}
+                title={event.status === 'draft' ? 'Publicar el evento en la tienda' : 'Volver a borrador (se oculta de la tienda)'}
+                onClick={handleToggleStatus}>
                 {event.status === 'draft' ? 'Publicar' : 'Borrador'}
               </Button>
             )}
@@ -372,6 +395,8 @@ export default function EventsPage() {
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
   const [deleteErr, setDeleteErr] = useState('')
   const [planWarning, setPlanWarning] = useState('')
+  // Evento que se intenta publicar sin ningún paquete de boletas
+  const [eventToPublish, setEventToPublish] = useState<Event | null>(null)
 
   const { data, isLoading } = useQuery<Event[]>({
     queryKey: ['events', effectiveVenueId, page],
@@ -391,6 +416,14 @@ export default function EventsPage() {
     onError: (e: AxiosError<{ detail: string }>) => {
       const detail = e.response?.data?.detail
       setDeleteErr(typeof detail === 'string' ? detail : 'No se pudo eliminar el evento')
+    },
+  })
+
+  const publishAnywayMut = useMutation({
+    mutationFn: (id: string) => eventsApi.update(id, { status: 'published' }),
+    onSuccess: () => {
+      setEventToPublish(null)
+      qc.invalidateQueries({ queryKey: ['events'] })
     },
   })
 
@@ -443,7 +476,8 @@ export default function EventsPage() {
                     ))
                   : filtered.map(event => (
                       <EventRow key={event.id} event={event}
-                        onDelete={ev => { setDeleteErr(''); setEventToDelete(ev) }} />
+                        onDelete={ev => { setDeleteErr(''); setEventToDelete(ev) }}
+                        onPublishNoTickets={setEventToPublish} />
                     ))
                 }
                 {!isLoading && filtered.length === 0 && (
@@ -467,6 +501,28 @@ export default function EventsPage() {
       {effectiveVenueId && (
         <CreateEventModal open={showCreate} onClose={() => setShowCreate(false)} venueId={effectiveVenueId} onWarning={setPlanWarning} />
       )}
+
+      <Modal open={!!eventToPublish} onClose={() => setEventToPublish(null)} title="Evento sin boletas" size="sm">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-8 w-8 text-amber-500 shrink-0" />
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold text-gray-900">“{eventToPublish?.name}”</span> no tiene
+              boletas: <strong>nadie podrá registrarse</strong> aunque el evento aparezca en la tienda.
+              Crea al menos un paquete con el botón <strong>Boletas</strong> antes de publicarlo.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="secondary" size="sm" onClick={() => setEventToPublish(null)}>
+              Crear boletas primero
+            </Button>
+            <Button size="sm" loading={publishAnywayMut.isPending}
+              onClick={() => eventToPublish && publishAnywayMut.mutate(eventToPublish.id)}>
+              Publicar de todos modos
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={!!eventToDelete} onClose={() => setEventToDelete(null)} title="Eliminar evento" size="sm">
         <div className="space-y-4">
