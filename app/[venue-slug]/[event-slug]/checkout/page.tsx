@@ -46,6 +46,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
   const [discountErr, setDiscountErr] = useState('')
   const [err, setErr] = useState('')
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [orderCompleted, setOrderCompleted] = useState(false)
   const [wompiUrl, setWompiUrl] = useState<string | null>(null)
 
   const { data: pkg, isLoading } = useQuery<VipPackage | undefined>({
@@ -96,11 +97,18 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
         sales_channel: 'online',
         discount_code: form.discount_code || null,
         items: [{ vip_package_id: pkgId, quantity: 1 }],
+        // El portador del ticket es quien compra (sale en el PDF y el check-in)
+        holder_name: form.full_name,
+        holder_email: form.email,
+        holder_phone: form.phone || null,
+        holder_id_number: form.id_number || null,
       })
       return orderRes.data
     },
     onSuccess: (data) => {
       setOrderId(data.id)
+      // Órdenes gratuitas: el backend las completa al crearse
+      setOrderCompleted(data.payment_status === 'completed')
       if (data.wompi_payment_url) setWompiUrl(data.wompi_payment_url)
       setStep('done')
     },
@@ -122,9 +130,13 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
         <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-900/50 border border-green-500 mb-6">
           <CheckCircle2 className="h-10 w-10 text-green-400" />
         </div>
-        <h1 className="text-3xl font-black text-white mb-2">¡Orden creada!</h1>
+        <h1 className="text-3xl font-black text-white mb-2">
+          {orderCompleted ? '¡Boletas confirmadas!' : '¡Orden creada!'}
+        </h1>
         <p className="text-gray-400 mb-8">
-          Revisa tu email para los detalles.
+          {orderCompleted
+            ? 'Tu orden gratuita quedó confirmada: no hay nada que pagar. Tus tickets con QR llegan a tu email.'
+            : 'Revisa tu email para los detalles.'}
         </p>
         {wompiUrl ? (
           <div className="space-y-4">
