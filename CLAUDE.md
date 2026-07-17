@@ -53,10 +53,36 @@ Páginas del ciclo de venues:
   asunto del backend, nunca escribir SQL desde aquí.
 - Errores de API: leer `error.response.data.detail` (string) y mostrarlo (patrón `onError` existente).
 
+## Tests E2E (Playwright)
+
+Automatizan el ciclo completo de un venue Starter: registro → evento + paquete gratis →
+compra en la tienda pública → check-in del ticket, más los rechazos del plan
+(`e2e/flujo-completo.spec.ts` y `e2e/rechazos.spec.ts`).
+
+```bash
+npm run test:e2e            # corre la suite (levanta next dev solo; cierra tu npm run dev antes)
+npx playwright show-report  # ver el último reporte HTML
+```
+
+- Corren **siempre contra el entorno local**: backend del repo hermano en Docker (si no está
+  arriba, el setup ejecuta `docker compose up -d` en `../vip_booster`) + un `next dev` que
+  Playwright levanta él mismo.
+- ⚠️ **El `.env.local` de este repo apunta el proxy `/api/*` a PRODUCCIÓN.** Por eso
+  `playwright.config.ts` fuerza `BACKEND_URL`/`NEXT_PUBLIC_API_URL` al backend local (las env
+  vars reales ganan sobre `.env.local`), no reusa un dev server ya abierto, y `e2e/global-setup.ts`
+  aborta si el proxy no responde con datos del backend local. **No quitar estas defensas**: sin
+  ellas la suite escribió datos e2e en prod una vez (2026-07-17; ya limpiados).
+- Todo dato de prueba lleva prefijo `e2e-`; el teardown los borra de la BD local vía
+  `docker exec vipbooster_db psql` (venues con su cascada, y users aparte porque
+  `users.venue_id` es ON DELETE SET NULL en la BD real, no CASCADE como dice el modelo).
+- El backend limita el registro de venues a 5/min por IP: dos corridas en el mismo minuto
+  pueden dar 429 — espera ~1 min entre corridas.
+
 ## Comandos
 
 ```bash
 npm run dev     # desarrollo contra backend local (http://localhost:8000)
 npm run build   # build standalone (igual que Railway)
 npm run lint
+npm run test:e2e
 ```
