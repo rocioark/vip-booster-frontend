@@ -59,7 +59,19 @@ function CreateDiscountModal({ open, onClose, venueId }: { open: boolean; onClos
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!form.code || !form.value) { setErr('Código y valor son requeridos'); return }
+    if (!form.code.trim()) { setErr('El código es requerido'); return }
+    const value = Number(form.value)
+    if (!form.value || !Number.isFinite(value) || value <= 0) {
+      setErr(form.discount_type === 'percentage'
+        ? 'El porcentaje es requerido y debe ser mayor a 0'
+        : 'El valor en COP es requerido y debe ser mayor a 0')
+      return
+    }
+    if (form.discount_type === 'percentage' && value > 100) {
+      setErr('El porcentaje no puede ser mayor a 100')
+      return
+    }
+    setErr('')
     createMut.mutate()
   }
 
@@ -94,23 +106,24 @@ function CreateDiscountModal({ open, onClose, venueId }: { open: boolean; onClos
               ))}
             </div>
           </div>
+          {/* type="text" + saneo de dígitos: un input number con "50.000" o
+              "$50000" reporta value="" y el campo parecía lleno pero no lo estaba */}
           <Input
             id="dc-value"
             label={form.discount_type === 'percentage' ? 'Porcentaje * (ej: 20)' : 'Valor (COP) *'}
-            type="number"
-            min={1}
-            max={form.discount_type === 'percentage' ? 100 : undefined}
+            type="text"
+            inputMode="numeric"
             value={form.value}
-            onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
+            onChange={e => setForm(f => ({ ...f, value: e.target.value.replace(/\D/g, '') }))}
             placeholder={form.discount_type === 'percentage' ? '20' : '50000'}
           />
           <Input
             id="dc-max"
             label="Usos máximos"
-            type="number"
-            min={1}
+            type="text"
+            inputMode="numeric"
             value={form.max_uses}
-            onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
+            onChange={e => setForm(f => ({ ...f, max_uses: e.target.value.replace(/\D/g, '') }))}
             placeholder="Ilimitado"
           />
           <Input

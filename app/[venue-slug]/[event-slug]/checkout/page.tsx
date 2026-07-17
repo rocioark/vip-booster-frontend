@@ -65,8 +65,13 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
     setDiscount(null)
     if (!form.discount_code.trim()) return
     try {
-      // API calculates discount_amount for us; subtotal is required
+      // API calculates discount_amount for us; subtotal is required.
+      // Un código inválido responde 200 con valid=false (no lanza error HTTP).
       const r = await publicApi.validateDiscount(form.discount_code.trim(), venueId, subtotal)
+      if (!r.data.valid) {
+        setDiscountErr(r.data.message || 'Código inválido o expirado')
+        return
+      }
       setDiscount({ amount: Number(r.data.discount_amount), type: r.data.discount_type })
     } catch {
       setDiscountErr('Código inválido o expirado')
