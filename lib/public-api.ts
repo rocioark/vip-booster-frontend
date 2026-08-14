@@ -33,6 +33,10 @@ export const publicApi = {
     pub.get(`/public/orders/${orderId}/tickets`),
 
   // Descuentos
-  validateDiscount: (code: string, venueId: string, subtotal: number) =>
-    pub.get('/public/discounts/validate', { params: { code, venue_id: venueId, subtotal } }),
+  // eventId es opcional en la API, pero sin él un código acotado a un evento
+  // se rechaza siempre: mandarlo desde el checkout del evento.
+  validateDiscount: (code: string, venueId: string, subtotal: number, eventId?: string) =>
+    pub.get('/public/discounts/validate', {
+      params: { code, venue_id: venueId, subtotal, event_id: eventId },
+    }),
 }

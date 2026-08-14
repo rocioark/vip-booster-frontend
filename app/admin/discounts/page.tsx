@@ -1,7 +1,7 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { discountsApi } from '@/lib/api'
+import { discountsApi, eventsApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useVenue } from '@/hooks/useVenueContext'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import type { Discount } from '@/lib/types'
+import type { Discount, Event } from '@/lib/types'
 import { Plus, Tag, PowerOff } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -21,17 +21,25 @@ function fmtDate(d: string | null) {
   try { return format(new Date(d), "d MMM yyyy", { locale: es }) } catch { return d }
 }
 
-function CreateDiscountModal({ open, onClose, venueId }: { open: boolean; onClose: () => void; venueId: string }) {
+const EMPTY_FORM = {
+  code: '',
+  description: '',
+  discount_type: 'percentage' as 'percentage' | 'fixed',
+  value: '',
+  max_uses: '',
+  valid_from: '',
+  valid_to: '',
+  event_id: '',
+}
+
+function CreateDiscountModal({ open, onClose, venueId, events }: {
+  open: boolean
+  onClose: () => void
+  venueId: string
+  events: Event[]
+}) {
   const qc = useQueryClient()
-  const [form, setForm] = useState({
-    code: '',
-    description: '',
-    discount_type: 'percentage' as 'percentage' | 'fixed',
-    value: '',
-    max_uses: '',
-    valid_from: '',
-    valid_to: '',
-  })
+  const [form, setForm] = useState(EMPTY_FORM)
   const [err, setErr] = useState('')
 
   const createMut = useMutation({
@@ -44,11 +52,13 @@ function CreateDiscountModal({ open, onClose, venueId }: { open: boolean; onClos
       max_uses: form.max_uses ? Number(form.max_uses) : null,
       valid_from: form.valid_from || null,
       valid_to: form.valid_to || null,
+      // Vacío = aplica a todos los eventos del venue
+      event_id: form.event_id || null,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['discounts'] })
       onClose()
-      setForm({ code: '', description: '', discount_type: 'percentage', value: '', max_uses: '', valid_from: '', valid_to: '' })
+      setForm(EMPTY_FORM)
       setErr('')
     },
     onError: (e: AxiosError<{ detail: unknown }>) => {
@@ -140,6 +150,25 @@ function CreateDiscountModal({ open, onClose, venueId }: { open: boolean; onClos
             value={form.valid_to}
             onChange={e => setForm(f => ({ ...f, valid_to: e.target.value }))}
           />
+          <div className="col-span-2">
+            <label htmlFor="dc-event" className="text-sm font-medium text-gray-700">Evento</label>
+            <select
+              id="dc-event"
+              value={form.event_id}
+              onChange={e => setForm(f => ({ ...f, event_id: e.target.value }))}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            >
+              <option value="">Todos los eventos</option>
+              {events.map(ev => (
+                <option key={ev.id} value={ev.id}>{ev.name} — {fmtDate(ev.event_date)}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {form.event_id
+                ? 'El código solo servirá para comprar este evento.'
+                : 'El código servirá para cualquier evento del venue.'}
+            </p>
+          </div>
           <Input
             id="dc-desc"
             label="Descripción"
@@ -174,6 +203,19 @@ export default function DiscountsPage() {
     enabled: !!user && !!effectiveVenueId,
   })
 
+  // Eventos del venue activo: alimentan el selector del modal y el nombre
+  // que se muestra en la columna "Evento" de la lista.
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ['events', effectiveVenueId],
+    queryFn: async () => {
+      const r = await eventsApi.list({ venue_id: effectiveVenueId ?? undefined })
+      return r.data
+    },
+    enabled: !!user && !!effectiveVenueId,
+  })
+
+  const eventNameById = new Map((events ?? []).map(e => [e.id, e.name]))
+
   // DELETE /{code} deactivates the discount (soft-delete, no activate endpoint exists)
   const deactivateMut = useMutation({
     mutationFn: (code: string) => discountsApi.deactivate(code),
@@ -200,6 +242,7 @@ export default function DiscountsPage() {
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Descuento</th>
+                  <th className="px-4 py-3">Evento</th>
                   <th className="px-4 py-3">Usos</th>
                   <th className="px-4 py-3">Vigencia</th>
                   <th className="px-4 py-3">Estado</th>
@@ -209,7 +252,7 @@ export default function DiscountsPage() {
               <tbody className="divide-y divide-gray-100">
                 {isLoading
                   ? Array.from({ length: 4 }).map((_, i) => (
-                      <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
+                      <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
                         <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-200 rounded animate-pulse" /></td>
                       ))}</tr>
                     ))
@@ -223,6 +266,17 @@ export default function DiscountsPage() {
                           {d.discount_type === 'percentage'
                             ? `${Number(d.value)}%`
                             : `$${Number(d.value).toLocaleString('es-CO')}`}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {d.event_id
+                            ? (
+                              <span className="text-gray-900">
+                                {/* eventsApi.list no trae eventos borrados (borrado lógico) */}
+                                {eventNameById.get(d.event_id) ?? 'Evento no disponible'}
+                              </span>
+                            )
+                            : <span className="text-gray-500">Todos los eventos</span>
+                          }
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
                           {d.current_uses} {d.max_uses ? `/ ${d.max_uses}` : '/ ∞'}
@@ -259,7 +313,7 @@ export default function DiscountsPage() {
                 }
                 {!isLoading && (data ?? []).length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <Tag className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">No hay códigos de descuento</p>
                     </td>
@@ -276,6 +330,7 @@ export default function DiscountsPage() {
           open={showCreate}
           onClose={() => setShowCreate(false)}
           venueId={effectiveVenueId}
+          events={events ?? []}
         />
       )}
     </div>

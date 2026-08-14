@@ -171,6 +171,8 @@ export interface VenueSummary {
 export interface Discount {
   id: string
   venue_id: string
+  // null = el código aplica a todos los eventos del venue
+  event_id: string | null
   code: string
   description: string | null
   discount_type: 'percentage' | 'fixed'
