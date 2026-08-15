@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import type { Discount, Event } from '@/lib/types'
-import { Plus, Tag, PowerOff } from 'lucide-react'
+import { Plus, Tag, PowerOff, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { AxiosError } from 'axios'
@@ -32,38 +32,69 @@ const EMPTY_FORM = {
   event_id: '',
 }
 
-function CreateDiscountModal({ open, onClose, venueId, events }: {
+// La API devuelve datetimes ISO; <input type="date"> solo entiende yyyy-MM-dd.
+function toDateInput(iso: string | null) {
+  return iso ? iso.slice(0, 10) : ''
+}
+
+function formFromDiscount(d: Discount): typeof EMPTY_FORM {
+  return {
+    code: d.code,
+    description: d.description ?? '',
+    discount_type: d.discount_type,
+    // Number() quita los decimales de Numeric(10,2): "20.00" → "20"
+    value: String(Number(d.value)),
+    max_uses: d.max_uses != null ? String(d.max_uses) : '',
+    valid_from: toDateInput(d.valid_from),
+    valid_to: toDateInput(d.valid_to),
+    event_id: d.event_id ?? '',
+  }
+}
+
+/**
+ * Alta y edición de un código. `discount` null = alta.
+ *
+ * El padre lo monta con `key` distinta por descuento para que el formulario
+ * arranque siempre con los datos de la fila que se abrió.
+ */
+function DiscountModal({ open, onClose, venueId, events, discount }: {
   open: boolean
   onClose: () => void
   venueId: string
   events: Event[]
+  discount: Discount | null
 }) {
   const qc = useQueryClient()
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [form, setForm] = useState(() => discount ? formFromDiscount(discount) : EMPTY_FORM)
   const [err, setErr] = useState('')
+  const isEdit = discount !== null
 
-  const createMut = useMutation({
-    mutationFn: () => discountsApi.create({
-      venue_id: venueId,
-      code: form.code.toUpperCase(),
-      description: form.description || null,
-      discount_type: form.discount_type,
-      value: Number(form.value),
-      max_uses: form.max_uses ? Number(form.max_uses) : null,
-      valid_from: form.valid_from || null,
-      valid_to: form.valid_to || null,
-      // Vacío = aplica a todos los eventos del venue
-      event_id: form.event_id || null,
-    }),
+  const saveMut = useMutation({
+    mutationFn: () => {
+      const payload = {
+        code: form.code.trim().toUpperCase(),
+        description: form.description.trim() || null,
+        discount_type: form.discount_type,
+        value: Number(form.value),
+        max_uses: form.max_uses ? Number(form.max_uses) : null,
+        valid_from: form.valid_from || null,
+        valid_to: form.valid_to || null,
+        // Vacío = aplica a todos los eventos del venue
+        event_id: form.event_id || null,
+      }
+      return discount
+        ? discountsApi.update(discount.id, payload)
+        : discountsApi.create({ venue_id: venueId, ...payload })
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['discounts'] })
       onClose()
-      setForm(EMPTY_FORM)
       setErr('')
     },
     onError: (e: AxiosError<{ detail: unknown }>) => {
       const detail = e.response?.data?.detail
-      setErr(typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Error al crear descuento')
+      const fallback = isEdit ? 'Error al guardar el descuento' : 'Error al crear descuento'
+      setErr(typeof detail === 'string' ? detail : JSON.stringify(detail) || fallback)
     },
   })
 
@@ -81,12 +112,21 @@ function CreateDiscountModal({ open, onClose, venueId, events }: {
       setErr('El porcentaje no puede ser mayor a 100')
       return
     }
+    if (form.max_uses && discount && Number(form.max_uses) < discount.current_uses) {
+      setErr(`El código ya tiene ${discount.current_uses} uso(s): los usos máximos no pueden quedar por debajo`)
+      return
+    }
     setErr('')
-    createMut.mutate()
+    saveMut.mutate()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Nuevo descuento" size="md">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={discount ? `Editar descuento ${discount.code}` : 'Nuevo descuento'}
+      size="md"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Input
@@ -95,7 +135,8 @@ function CreateDiscountModal({ open, onClose, venueId, events }: {
             value={form.code}
             onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
             placeholder="PROMO20"
-            className="col-span-2 font-mono"
+            className="font-mono"
+            wrapperClassName="col-span-2"
           />
           <div className="col-span-2">
             <label className="text-sm font-medium text-gray-700">Tipo de descuento</label>
@@ -159,6 +200,12 @@ function CreateDiscountModal({ open, onClose, venueId, events }: {
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Todos los eventos</option>
+              {/* eventsApi.list no trae eventos borrados: sin esta opción el
+                  select caería a "Todos los eventos" y al guardar se perdería
+                  el acotamiento sin que nadie lo pidiera. */}
+              {form.event_id && !events.some(ev => ev.id === form.event_id) && (
+                <option value={form.event_id}>Evento no disponible</option>
+              )}
               {events.map(ev => (
                 <option key={ev.id} value={ev.id}>{ev.name} — {fmtDate(ev.event_date)}</option>
               ))}
@@ -169,19 +216,30 @@ function CreateDiscountModal({ open, onClose, venueId, events }: {
                 : 'El código servirá para cualquier evento del venue.'}
             </p>
           </div>
-          <Input
-            id="dc-desc"
-            label="Descripción"
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Descuento de lanzamiento"
-            className="col-span-2"
-          />
+          <div className="col-span-2">
+            <label htmlFor="dc-desc" className="text-sm font-medium text-gray-700">Descripción</label>
+            <textarea
+              id="dc-desc"
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Descuento de lanzamiento"
+            />
+          </div>
         </div>
+        {discount && discount.current_uses > 0 && (
+          <p className="text-xs text-amber-600">
+            Este código ya tiene {discount.current_uses} uso(s). Los cambios solo afectan
+            a las compras futuras; las órdenes existentes no se recalculan.
+          </p>
+        )}
         {err && <p className="text-sm text-red-600">{err}</p>}
         <div className="flex gap-3 justify-end pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={createMut.isPending}>Crear descuento</Button>
+          <Button type="submit" loading={saveMut.isPending}>
+            {isEdit ? 'Guardar cambios' : 'Crear descuento'}
+          </Button>
         </div>
       </form>
     </Modal>
@@ -192,6 +250,7 @@ export default function DiscountsPage() {
   const { user } = useAuth()
   const { effectiveVenueId } = useVenue()
   const [showCreate, setShowCreate] = useState(false)
+  const [editing, setEditing] = useState<Discount | null>(null)
   const qc = useQueryClient()
 
   const { data, isLoading } = useQuery<Discount[]>({
@@ -294,19 +353,25 @@ export default function DiscountsPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          {d.is_active ? (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              loading={deactivateMut.isPending}
-                              onClick={() => deactivateMut.mutate(d.code)}
-                            >
-                              <PowerOff className="h-3.5 w-3.5" />
-                              Desactivar
+                          <div className="flex items-center gap-2">
+                            <Button variant="secondary" size="sm" onClick={() => setEditing(d)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar
                             </Button>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">No reactivable</span>
-                          )}
+                            {d.is_active ? (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                loading={deactivateMut.isPending && deactivateMut.variables === d.code}
+                                onClick={() => deactivateMut.mutate(d.code)}
+                              >
+                                <PowerOff className="h-3.5 w-3.5" />
+                                Desactivar
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">No reactivable</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -325,12 +390,15 @@ export default function DiscountsPage() {
         </Card>
       </div>
 
-      {effectiveVenueId && (
-        <CreateDiscountModal
-          open={showCreate}
-          onClose={() => setShowCreate(false)}
+      {effectiveVenueId && (showCreate || editing) && (
+        <DiscountModal
+          // Remonta el formulario al cambiar de descuento (o al pasar a alta)
+          key={editing?.id ?? 'new'}
+          open
+          onClose={() => { setShowCreate(false); setEditing(null) }}
           venueId={effectiveVenueId}
           events={events ?? []}
+          discount={editing}
         />
       )}
     </div>

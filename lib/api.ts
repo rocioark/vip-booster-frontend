@@ -121,11 +121,13 @@ export const ticketsApi = {
 }
 
 // ── Discounts ────────────────────────────────────────────────
-// DELETE /{code} deactivates (soft delete). No update/activate endpoint exists.
+// DELETE /{code} deactivates (soft delete). No activate endpoint exists.
+// PATCH takes the id, not the code, because the code itself is editable.
 export const discountsApi = {
   list: (params?: { venue_id?: string; active_only?: boolean; skip?: number; limit?: number }) =>
     api.get('/discounts', { params }),
   create: (data: unknown) => api.post('/discounts', data),
+  update: (id: string, data: unknown) => api.patch(`/discounts/${id}`, data),
   deactivate: (code: string) => api.delete(`/discounts/${code}`),
   validate: (code: string, venue_id: string, subtotal: number) =>
     api.get('/discounts/validate', { params: { code, venue_id, subtotal } }),

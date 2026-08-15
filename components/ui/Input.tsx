@@ -4,14 +4,20 @@ import { InputHTMLAttributes, forwardRef } from 'react'
 interface Props extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
+  /**
+   * Clases para el contenedor (label + input + error), no para el <input>.
+   * Necesario para posicionar el campo dentro de un grid: `className` viaja
+   * al <input>, así que un `col-span-2` ahí no hace nada.
+   */
+  wrapperClassName?: string
 }
 
 export const Input = forwardRef<HTMLInputElement, Props>(function Input(
-  { label, error, className, id, ...props },
+  { label, error, className, wrapperClassName, id, ...props },
   ref
 ) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className={clsx('flex flex-col gap-1', wrapperClassName)}>
       {label && (
         <label htmlFor={id} className="text-sm font-medium text-gray-700">
           {label}

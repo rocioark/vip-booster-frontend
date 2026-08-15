@@ -17,6 +17,11 @@ const sizes = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl' }
 
 export function Modal({ open, onClose, title, children, size = 'md', dismissable = true }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  // El click solo cuenta como "click en el overlay" si el gesto EMPEZÓ ahí.
+  // Sin esto el modal se cerraba en gestos que nacen dentro: soltar el mouse
+  // fuera al seleccionar texto de un campo, o el click que el menú
+  // contextual del navegador deja caer sobre el overlay al elegir "Pegar".
+  const pressedOverlay = useRef(false)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && dismissable) onClose() }
@@ -30,7 +35,12 @@ export function Modal({ open, onClose, title, children, size = 'md', dismissable
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
+      onMouseDown={(e) => { pressedOverlay.current = e.button === 0 && e.target === overlayRef.current }}
+      onClick={(e) => {
+        const fromOverlay = pressedOverlay.current
+        pressedOverlay.current = false
+        if (dismissable && fromOverlay && e.target === overlayRef.current) onClose()
+      }}
     >
       <div className={clsx('bg-white rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-[90vh]', sizes[size])}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
