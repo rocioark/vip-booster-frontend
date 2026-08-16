@@ -19,8 +19,10 @@ export interface Venue {
   id: string
   name: string
   slug: string
-  owner_name: string
-  owner_email: string
+  // El listado (GET /venues) no trae los datos de contacto: solo llegan en
+  // el detalle (GET /venues/{id}, VenueWithBilling).
+  owner_name?: string
+  owner_email?: string
   is_active: boolean
   created_at: string
   plan?: VenuePlan
@@ -85,6 +87,15 @@ export interface VipPackage {
   created_at: string
   updated_at: string
 }
+
+// Documentos que acepta Wompi para el pagador. El valor viaja tal cual a
+// customers.id_type / tickets.holder_id_type.
+export const ID_TYPES = [
+  { value: 'CC', label: 'Cédula (CC)' },
+  { value: 'CE', label: 'Cédula extranjería (CE)' },
+  { value: 'PASSPORT', label: 'Pasaporte' },
+  { value: 'NIT', label: 'NIT' },
+] as const
 
 export interface Customer {
   id: string

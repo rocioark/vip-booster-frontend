@@ -97,6 +97,7 @@ export const customersApi = {
     api.get('/customers', { params: { limit: 100, ...params } }),
   create: (data: unknown) => api.post('/customers', data),
   get: (id: string) => api.get(`/customers/${id}`),
+  update: (id: string, data: unknown) => api.patch(`/customers/${id}`, data),
 }
 
 // ── Orders ───────────────────────────────────────────────────

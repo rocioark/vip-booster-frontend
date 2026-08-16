@@ -35,6 +35,7 @@ function slugify(str: string) {
 
 function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: number | null }) {
   const qc = useQueryClient()
+  const { user } = useAuth()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', tier_level: 1, price: '', quantity_total: '', description: '' })
   const [err, setErr] = useState('')
@@ -45,10 +46,13 @@ function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: nu
     queryFn: async () => { const r = await vipPackagesApi.list(eventId); return r.data },
   })
 
-  // Cupos totales vs capacidad: se permite exceder (el freno real es la
-  // venta), pero se advierte.
+  // Cupos totales vs capacidad. Para el venue_owner el backend lo rechaza
+  // (no se puede prometer más boletas de las que caben); el super admin sigue
+  // pudiendo pasarse, con advertencia.
+  const isSuperAdmin = user?.role === 'super_admin'
   const totalQuota = (pkgs ?? []).reduce((s, p) => s + p.quantity_total, 0)
   const quotaExceeded = capacity != null && totalQuota > capacity
+  const quotaLeft = capacity != null ? Math.max(capacity - totalQuota, 0) : null
 
   const createMut = useMutation({
     mutationFn: () => vipPackagesApi.create({
@@ -80,6 +84,14 @@ function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: nu
     e.preventDefault()
     // Precio 0 es válido: paquete gratuito (lo único permitido en Starter)
     if (!form.name || form.price === '' || !form.quantity_total) { setErr('Nombre, precio y cantidad son requeridos'); return }
+    // Mismo corte que hace el backend, para no gastar el viaje
+    if (!isSuperAdmin && quotaLeft != null && Number(form.quantity_total) > quotaLeft) {
+      setErr(
+        `Los cupos de los paquetes suman ${totalQuota + Number(form.quantity_total)} y el evento ` +
+        `tiene capacidad para ${capacity}. Quedan ${quotaLeft} disponibles.`
+      )
+      return
+    }
     createMut.mutate()
   }
 
@@ -98,10 +110,14 @@ function VipPackagesPanel({ eventId, capacity }: { eventId: string; capacity: nu
           <button onClick={() => setWarning('')} className="text-amber-500 hover:text-amber-700 font-bold shrink-0">✕</button>
         </div>
       )}
-      {quotaExceeded && (
+      {quotaExceeded ? (
         <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          La suma de cupos ({totalQuota}) supera la capacidad del evento ({capacity}).
-          No es un error, pero solo se venderán hasta {capacity} boletas en total.
+          La suma de cupos ({totalQuota}) supera la capacidad del evento ({capacity}):
+          solo se venderán hasta {capacity} boletas en total.
+        </p>
+      ) : capacity != null && (
+        <p className="text-xs text-gray-500">
+          Cupos asignados: {totalQuota} de {capacity} · quedan {quotaLeft}
         </p>
       )}
 

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Building2, Plus } from 'lucide-react'
+import { Building2, Pencil, Plus } from 'lucide-react'
 import { venuesApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { Header } from '@/components/layout/Header'
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { PLAN_LABELS, PLAN_MONTHLY_LIMIT, type Venue, type VenuePlan } from '@/lib/types'
+import { PLAN_LABELS, PLAN_MONTHLY_LIMIT, type SubscriptionStatus, type Venue, type VenuePlan } from '@/lib/types'
 
 function slugify(str: string) {
   return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
@@ -41,6 +41,7 @@ export default function VenuesAdminPage() {
   const router = useRouter()
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+  const [editing, setEditing] = useState<Venue | null>(null)
   const [rowErr, setRowErr] = useState('')
 
   const isSuperAdmin = user?.role === 'super_admin'
@@ -146,18 +147,25 @@ export default function VenuesAdminPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-500">{fmtDate(v.created_at)}</td>
-                        <td className="px-4 py-3 text-right">
-                          {status === 'active' ? (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
                             <Button size="sm" variant="secondary"
-                              onClick={() => { setRowErr(''); statusMut.mutate({ id: v.id, status: 'suspended' }) }}>
-                              Suspender
+                              onClick={() => { setRowErr(''); setEditing(v) }}>
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar
                             </Button>
-                          ) : (
-                            <Button size="sm"
-                              onClick={() => { setRowErr(''); statusMut.mutate({ id: v.id, status: 'active' }) }}>
-                              Activar
-                            </Button>
-                          )}
+                            {status === 'active' ? (
+                              <Button size="sm" variant="secondary"
+                                onClick={() => { setRowErr(''); statusMut.mutate({ id: v.id, status: 'suspended' }) }}>
+                                Suspender
+                              </Button>
+                            ) : (
+                              <Button size="sm"
+                                onClick={() => { setRowErr(''); statusMut.mutate({ id: v.id, status: 'active' }) }}>
+                                Activar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )
@@ -170,7 +178,128 @@ export default function VenuesAdminPage() {
       </div>
 
       <CreateVenueModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={invalidate} />
+      {editing && (
+        <EditVenueModal
+          // Remonta el formulario al cambiar de venue
+          key={editing.id}
+          venue={editing}
+          onClose={() => setEditing(null)}
+          onSaved={invalidate}
+        />
+      )}
     </div>
+  )
+}
+
+/**
+ * Edición completa del venue (super admin). El plan y el estado también se
+ * cambian desde la fila; aquí van junto al resto para no tener que entrar
+ * por dos sitios distintos.
+ */
+function EditVenueModal({ venue, onClose, onSaved }: {
+  venue: Venue
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [form, setForm] = useState({
+    name: venue.name,
+    slug: venue.slug,
+    plan: (venue.plan ?? 'starter') as VenuePlan,
+    subscription_status: venue.subscription_status ?? 'active',
+    owner_name: '',
+    owner_email: '',
+  })
+  const [err, setErr] = useState('')
+
+  // El listado no trae los datos de contacto; el detalle sí.
+  const { isLoading: loadingDetail } = useQuery<Venue>({
+    queryKey: ['venue-detail', venue.id],
+    queryFn: async () => {
+      const detail = (await venuesApi.get(venue.id)).data as Venue
+      setForm(f => ({
+        ...f,
+        owner_name: f.owner_name || detail.owner_name || '',
+        owner_email: f.owner_email || detail.owner_email || '',
+      }))
+      return detail
+    },
+  })
+
+  const saveMut = useMutation({
+    mutationFn: () => venuesApi.update(venue.id, {
+      name: form.name.trim(),
+      slug: form.slug,
+      plan: form.plan,
+      subscription_status: form.subscription_status,
+      owner_name: form.owner_name.trim(),
+      owner_email: form.owner_email.trim(),
+    }),
+    onSuccess: () => { onSaved(); onClose() },
+    onError: (e) => setErr(apiErr(e)),
+  })
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!form.name.trim()) { setErr('El nombre es requerido'); return }
+    if (form.slug.length < 3) { setErr('El slug debe tener al menos 3 caracteres'); return }
+    if (!form.owner_name.trim() || !form.owner_email.trim()) {
+      setErr('Nombre y email de contacto son requeridos'); return
+    }
+    setErr('')
+    saveMut.mutate()
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Editar ${venue.name}`} size="md">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Input id="ev-name" label="Nombre *" value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          <Input id="ev-slug" label="Slug *" value={form.slug}
+            onChange={e => setForm(f => ({ ...f, slug: slugify(e.target.value) }))} />
+          <div className="col-span-2 -mt-2">
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Cambiar el slug cambia la URL pública del venue: los enlaces
+              <span className="font-mono"> /{venue.slug}</span> que ya circulan dejan de funcionar.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ev-plan" className="text-sm font-medium text-gray-700">Plan</label>
+            <select id="ev-plan" value={form.plan}
+              onChange={e => setForm(f => ({ ...f, plan: e.target.value as VenuePlan }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+              {Object.entries(PLAN_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ev-status" className="text-sm font-medium text-gray-700">Estado</label>
+            <select id="ev-status" value={form.subscription_status}
+              onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value as SubscriptionStatus }))}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+              {Object.entries(STATUS_BADGE).map(([value, { label }]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <Input id="ev-owner" label="Nombre del dueño *" value={form.owner_name}
+            placeholder={loadingDetail ? 'Cargando…' : ''}
+            onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} />
+          <Input id="ev-owner-email" label="Email de contacto *" type="email" value={form.owner_email}
+            placeholder={loadingDetail ? 'Cargando…' : ''}
+            onChange={e => setForm(f => ({ ...f, owner_email: e.target.value }))} />
+        </div>
+        <p className="text-xs text-gray-500">
+          Esto no cambia el email de login del usuario dueño: eso se edita en Usuarios.
+        </p>
+        {err && <p className="text-sm text-red-600">{err}</p>}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" loading={saveMut.isPending} disabled={loadingDetail}>Guardar cambios</Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

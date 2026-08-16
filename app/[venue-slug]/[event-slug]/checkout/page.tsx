@@ -3,7 +3,7 @@ import { useState, FormEvent, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
-import type { VipPackage } from '@/lib/types'
+import { ID_TYPES, type VipPackage } from '@/lib/types'
 import Link from 'next/link'
 import { ArrowLeft, Lock, CheckCircle2 } from 'lucide-react'
 import { AxiosError } from 'axios'
@@ -89,7 +89,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
         full_name: form.full_name,
         email: form.email,
         phone: form.phone || null,
-        id_type: form.id_type || null,
+        id_type: form.id_number ? form.id_type : null,
         id_number: form.id_number || null,
       })
       const customerId = custRes.data.id
@@ -106,6 +106,8 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
         holder_name: form.full_name,
         holder_email: form.email,
         holder_phone: form.phone || null,
+        // Documento del portador: sale impreso en el PDF y se pide en la puerta
+        holder_id_type: form.id_number ? form.id_type : null,
         holder_id_number: form.id_number || null,
       })
       return orderRes.data
@@ -221,9 +223,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
               <label className="block text-sm text-gray-400 mb-1">Tipo de documento</label>
               <select value={form.id_type} onChange={e => setForm(f => ({ ...f, id_type: e.target.value }))}
                 className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-brand-500">
-                <option value="CC">Cédula (CC)</option>
-                <option value="CE">Cédula extranjería (CE)</option>
-                <option value="PASSPORT">Pasaporte</option>
+                {ID_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
