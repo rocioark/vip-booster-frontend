@@ -165,8 +165,28 @@ export interface CheckInResponse {
 export interface TopEvent {
   event_id: string
   event_name: string
+  event_date: string
+  total_orders: number
   revenue: number
   tickets_sold: number
+  // null si el evento no tiene capacidad definida
+  occupancy_rate: number | null
+}
+
+export interface DailyPoint {
+  date: string          // YYYY-MM-DD
+  tickets: number
+  revenue: number
+}
+
+export interface RecentOrder {
+  id: string
+  order_number: string
+  event_name: string
+  customer_name: string | null
+  total: number
+  payment_status: Order['payment_status']
+  created_at: string
 }
 
 export interface VenueSummary {
@@ -177,6 +197,20 @@ export interface VenueSummary {
   total_events: number
   revenue_last_30_days: number
   top_events: TopEvent[]
+  // Métricas que siguen diciendo algo cuando todo es gratis
+  tickets_last_30_days: number
+  checked_in_tickets: number
+  upcoming_events: number
+  avg_occupancy_rate: number | null
+  // Estado operativo
+  pending_orders: number
+  pending_orders_amount: number
+  tickets_this_month: number
+  plan: VenuePlan | null
+  plan_monthly_limit: number | null
+  // Un punto por día de los últimos 30, incluidos los vacíos
+  daily: DailyPoint[]
+  recent_orders: RecentOrder[]
 }
 
 export interface Discount {

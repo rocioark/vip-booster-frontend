@@ -59,6 +59,9 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
   })
 
   const subtotal = pkg?.price ?? 0
+  // El paquete pedido por URL puede no estar en la lista comprable: se agotó,
+  // se desactivó, o es de pago en un venue Starter (solo vende gratis).
+  const pkgUnavailable = !isLoading && !pkg
 
   async function applyDiscount() {
     setDiscountErr('')
@@ -81,6 +84,8 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
   // API already returns the final discount_amount — use it directly
   const discountAmt = discount ? Math.min(discount.amount, subtotal) : 0
   const total = Math.max(0, subtotal - discountAmt)
+  // Nada que cobrar: ni paquete gratis ni descuento del 100% pasan por pasarela
+  const isFree = total === 0
 
   const orderMut = useMutation({
     mutationFn: async () => {
@@ -172,6 +177,24 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
     )
   }
 
+  if (pkgUnavailable) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-16 px-4">
+        <h1 className="text-2xl font-black text-white mb-3">Este package ya no está disponible</h1>
+        <p className="text-gray-400 mb-8">
+          Puede que se haya agotado o que el organizador lo haya retirado.
+          Volvé a la página del evento para ver los que siguen a la venta.
+        </p>
+        <Link
+          href={`/${venueSlug}/${eventSlug}`}
+          className="inline-block bg-brand-600 hover:bg-brand-500 text-white font-bold px-8 py-3 rounded-xl transition-colors"
+        >
+          Ver packages disponibles →
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
       <Link href={`/${venueSlug}/${eventSlug}`} className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white mb-8 transition-colors">
@@ -235,21 +258,28 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
           </div>
         </div>
 
-        {/* Payment method */}
+        {/* Payment method — si no hay nada que cobrar, elegir cómo pagar confunde */}
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-white">Método de pago</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {PAYMENT_METHODS.map(pm => (
-              <button key={pm.value} type="button" onClick={() => setForm(f => ({ ...f, payment_method: pm.value }))}
-                className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-                  form.payment_method === pm.value
-                    ? 'bg-brand-900 border-brand-500 text-brand-300'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                }`}>
-                {pm.label}
-              </button>
-            ))}
-          </div>
+          {isFree ? (
+            <div className="rounded-xl border border-green-700 bg-green-900/30 px-4 py-3 text-green-300 text-sm">
+              <span className="font-bold">Gratis</span> — no hay nada que pagar.
+              Confirmá la orden y tus boletas con QR llegan a tu email.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {PAYMENT_METHODS.map(pm => (
+                <button key={pm.value} type="button" onClick={() => setForm(f => ({ ...f, payment_method: pm.value }))}
+                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+                    form.payment_method === pm.value
+                      ? 'bg-brand-900 border-brand-500 text-brand-300'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}>
+                  {pm.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Discount */}
@@ -277,7 +307,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-5 space-y-2">
           <div className="flex justify-between text-sm text-gray-400">
             <span>Subtotal — {pkg?.name}</span>
-            <span>{fmt(subtotal)}</span>
+            <span>{fmtPrice(subtotal)}</span>
           </div>
           {discountAmt > 0 && (
             <div className="flex justify-between text-sm text-green-400">
@@ -287,7 +317,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
           )}
           <div className="flex justify-between text-lg font-black text-white border-t border-gray-700 pt-2 mt-2">
             <span>Total</span>
-            <span className="text-brand-400">{fmt(total)}</span>
+            <span className="text-brand-400">{fmtPrice(total)}</span>
           </div>
         </div>
 
@@ -303,7 +333,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
           {orderMut.isPending ? (
             <span className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
-            <><Lock className="h-5 w-5" /> Confirmar orden — {fmt(total)}</>
+            <><Lock className="h-5 w-5" /> Confirmar orden — {fmtPrice(total)}</>
           )}
         </button>
 

@@ -42,10 +42,23 @@ Páginas del ciclo de venues:
 ## Roles (los devuelve el backend en minúscula)
 
 - `super_admin`: ve todos los venues; selector de "Venue activo" en el sidebar (rutas `/admin`).
-- `venue_owner`: administra su venue (rutas `(dashboard)`).
+- `venue_owner`: administra su venue. **Todos los roles usan `/admin/*`**: el grupo `(dashboard)`
+  es solo un shim que redirige a `/admin{pathname}`, y `components/layout/Sidebar.tsx` ya no lo
+  importa nadie (el vivo es `AdminSidebar`). No agregar pantallas ahí.
 - `venue_staff`: operación (POS, check-in).
 - Los eventos se borran con **borrado lógico** en el backend: desaparecen de listados/tienda pero sus
   órdenes históricas siguen visibles en Órdenes — es comportamiento esperado, no un bug.
+
+## Tienda pública y checkout
+
+- Los paquetes de pago de un venue Starter **no llegan** desde `GET /public/vip-packages`: el
+  backend los filtra. Si alguien entra al checkout con `?pkg=` de uno que ya no está comprable
+  (agotado, desactivado o filtrado), la página muestra "Este package ya no está disponible" en vez
+  de un formulario que no se puede enviar.
+- Con **total $0** (paquete gratis o descuento del 100%) el checkout no muestra métodos de pago:
+  elegir cómo pagar algo que no se cobra confunde. Se muestra "Gratis" y el total sale como
+  "Gratis", no como "$ 0". La orden igual viaja con el `payment_method` por defecto — para el
+  backend una orden de total 0 se completa sola, sin pasarela.
 
 ## Convenciones
 
