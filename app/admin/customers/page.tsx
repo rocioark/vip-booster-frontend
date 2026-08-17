@@ -2,7 +2,7 @@
 import { useState, FormEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
-import { customersApi } from '@/lib/api'
+import { customersApi, eventsApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useVenue } from '@/hooks/useVenueContext'
@@ -11,10 +11,12 @@ import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { ID_TYPES, type Customer } from '@/lib/types'
+import { ID_TYPES, type Customer, type Event } from '@/lib/types'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Users, Mail, Phone, ShoppingBag, Pencil } from 'lucide-react'
+import {
+  Users, Mail, Phone, ShoppingBag, Pencil, Download, X, ArrowUp, ArrowDown,
+} from 'lucide-react'
 
 function fmtDate(d: string | null) {
   if (!d) return '—'
@@ -22,6 +24,35 @@ function fmtDate(d: string | null) {
 }
 
 const PAGE_SIZE = 30
+
+// Mismas claves que acepta el backend (lista blanca en customer_repository)
+type SortKey = 'full_name' | 'total_purchases' | 'total_tickets' | 'last_purchase_at' | 'created_at'
+
+interface SortState { by: SortKey; dir: 'asc' | 'desc' }
+
+function SortableTh({ label, column, sort, onSort }: {
+  label: string
+  column: SortKey
+  sort: SortState
+  onSort: (c: SortKey) => void
+}) {
+  const active = sort.by === column
+  const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <th className="px-4 py-3">
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide transition-colors ${
+          active ? 'text-gray-900' : 'hover:text-gray-700'
+        }`}
+      >
+        {label}
+        {active && <Arrow className="h-3 w-3" />}
+      </button>
+    </th>
+  )
+}
 
 /**
  * Edición de los datos del cliente. Nombre, email, teléfono y documento son
@@ -130,53 +161,174 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [editing, setEditing] = useState<Customer | null>(null)
+  const [eventId, setEventId] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [sort, setSort] = useState<{ by: SortKey; dir: 'asc' | 'desc' }>({
+    by: 'created_at', dir: 'desc',
+  })
+  const [exporting, setExporting] = useState(false)
+  const [exportErr, setExportErr] = useState('')
   // Búsqueda en el servidor (ILIKE sobre nombre/email/teléfono) con
   // debounce: busca en TODOS los clientes, no solo en la página cargada.
   const debouncedSearch = useDebounce(search.trim())
 
-  const { data, isLoading } = useQuery<Customer[]>({
-    queryKey: ['customers', effectiveVenueId, page, debouncedSearch],
+  // Eventos del venue para el filtro "compraron para..."
+  const { data: events } = useQuery<Event[]>({
+    queryKey: ['events', effectiveVenueId],
     queryFn: async () => {
-      const params: { venue_id?: string; search?: string; skip: number; limit: number } = {
-        skip: page * PAGE_SIZE,
-        limit: PAGE_SIZE,
-      }
-      if (effectiveVenueId) params.venue_id = effectiveVenueId
-      if (debouncedSearch) params.search = debouncedSearch
-      const r = await customersApi.list(params)
+      const r = await eventsApi.list({ venue_id: effectiveVenueId ?? undefined })
       return r.data
+    },
+    enabled: !!user && !!effectiveVenueId,
+  })
+
+  // Los filtros van juntos al backend y al CSV: un export que no coincide con
+  // lo que se ve en pantalla es peor que no tener export.
+  const filters = {
+    ...(effectiveVenueId ? { venue_id: effectiveVenueId } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(eventId ? { event_id: eventId } : {}),
+    ...(dateFrom ? { date_from: dateFrom } : {}),
+    ...(dateTo ? { date_to: dateTo } : {}),
+    sort_by: sort.by,
+    sort_dir: sort.dir,
+  }
+  const hasFilters = !!(debouncedSearch || eventId || dateFrom || dateTo)
+
+  const { data, isLoading } = useQuery<{ items: Customer[]; total: number }>({
+    queryKey: ['customers', filters, page],
+    queryFn: async () => {
+      const r = await customersApi.list({ ...filters, skip: page * PAGE_SIZE, limit: PAGE_SIZE })
+      // El total de la búsqueda viaja en la cabecera, no en el body
+      const total = Number(r.headers['x-total-count'] ?? r.data.length)
+      return { items: r.data, total: Number.isFinite(total) ? total : r.data.length }
     },
     enabled: !!user && (isSuperAdmin || !!effectiveVenueId),
     placeholderData: prev => prev,
   })
 
-  const filtered = data ?? []
+  const filtered = data?.items ?? []
+  const total = data?.total ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const firstRow = total === 0 ? 0 : page * PAGE_SIZE + 1
+  const lastRow = Math.min(total, page * PAGE_SIZE + filtered.length)
+
+  function toggleSort(by: SortKey) {
+    setPage(0)
+    setSort(s => s.by === by
+      ? { by, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      // Fechas y números arrancan de mayor a menor: es lo que se quiere ver
+      : { by, dir: by === 'full_name' ? 'asc' : 'desc' })
+  }
+
+  function clearFilters() {
+    setSearch(''); setEventId(''); setDateFrom(''); setDateTo(''); setPage(0)
+  }
+
+  async function exportCsv() {
+    setExporting(true)
+    setExportErr('')
+    try {
+      const r = await customersApi.exportCsv(filters)
+      const url = URL.createObjectURL(new Blob([r.data], { type: 'text/csv;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clientes_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      if (r.headers['x-truncated'] === 'true') {
+        setExportErr('El CSV se cortó en 10.000 filas. Afiná los filtros para exportar el resto.')
+      }
+    } catch {
+      setExportErr('No se pudo generar el CSV. Intentá de nuevo.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div>
       <Header title="Clientes" />
       <div className="p-6 space-y-4">
-        <div className="flex gap-3">
-          <input
-            className="flex-1 max-w-md rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            placeholder="Buscar por nombre, email o teléfono..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0) }}
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1 flex-1 min-w-[220px] max-w-md">
+            <label htmlFor="cu-search" className="text-xs font-medium text-gray-500">Buscar</label>
+            <input
+              id="cu-search"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Nombre, email o teléfono..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(0) }}
+            />
+          </div>
+          <div className="flex flex-col gap-1 min-w-[200px]">
+            <label htmlFor="cu-event" className="text-xs font-medium text-gray-500">Evento</label>
+            <select
+              id="cu-event"
+              value={eventId}
+              onChange={e => { setEventId(e.target.value); setPage(0) }}
+              disabled={!effectiveVenueId}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-50"
+            >
+              <option value="">Todos los eventos</option>
+              {(events ?? []).map(ev => (
+                <option key={ev.id} value={ev.id}>{ev.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="cu-from" className="text-xs font-medium text-gray-500">Compraron desde</label>
+            <input
+              id="cu-from" type="date" value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setPage(0) }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="cu-to" className="text-xs font-medium text-gray-500">Hasta</label>
+            <input
+              id="cu-to" type="date" value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setPage(0) }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" /> Limpiar
+            </Button>
+          )}
+          <div className="ml-auto">
+            <Button variant="secondary" size="sm" loading={exporting} onClick={exportCsv} disabled={total === 0}>
+              <Download className="h-3.5 w-3.5" /> Exportar CSV
+            </Button>
+          </div>
         </div>
 
+        {exportErr && (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{exportErr}</p>
+        )}
+
         <Card>
-          <CardHeader title={`${filtered.length} cliente${filtered.length !== 1 ? 's' : ''}`} />
+          <CardHeader
+            title={
+              isLoading && !data
+                ? 'Cargando clientes…'
+                : `${total.toLocaleString('es-CO')} cliente${total !== 1 ? 's' : ''}${hasFilters ? ' con estos filtros' : ''}`
+            }
+          />
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                  <th className="px-4 py-3">Cliente</th>
+                  <SortableTh label="Cliente" column="full_name" sort={sort} onSort={toggleSort} />
                   <th className="px-4 py-3">Contacto</th>
-                  <th className="px-4 py-3">Compras</th>
-                  <th className="px-4 py-3">Tickets</th>
-                  <th className="px-4 py-3">Última compra</th>
-                  <th className="px-4 py-3">Registrado</th>
+                  <SortableTh label="Compras" column="total_purchases" sort={sort} onSort={toggleSort} />
+                  <SortableTh label="Tickets" column="total_tickets" sort={sort} onSort={toggleSort} />
+                  <SortableTh label="Última compra" column="last_purchase_at" sort={sort} onSort={toggleSort} />
+                  <SortableTh label="Registrado" column="created_at" sort={sort} onSort={toggleSort} />
                   <th className="px-4 py-3">Acciones</th>
                 </tr>
               </thead>
@@ -247,10 +399,15 @@ export default function CustomersPage() {
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">
-                        {debouncedSearch
-                          ? `Sin resultados para "${debouncedSearch}"`
+                        {hasFilters
+                          ? 'Ningún cliente coincide con estos filtros'
                           : 'No hay clientes registrados aún'}
                       </p>
+                      {hasFilters && (
+                        <button onClick={clearFilters} className="text-sm text-brand-600 hover:underline mt-2">
+                          Limpiar filtros
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -258,11 +415,16 @@ export default function CustomersPage() {
             </table>
           </div>
 
-          {((data?.length ?? 0) === PAGE_SIZE || page > 0) && (
+          {total > 0 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-              <Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Anterior</Button>
-              <span className="text-xs text-gray-500">Página {page + 1}</span>
-              <Button variant="secondary" size="sm" disabled={(data?.length ?? 0) < PAGE_SIZE} onClick={() => setPage(p => p + 1)}>Siguiente →</Button>
+              <span className="text-xs text-gray-500">
+                Mostrando {firstRow.toLocaleString('es-CO')}–{lastRow.toLocaleString('es-CO')} de {total.toLocaleString('es-CO')}
+              </span>
+              <div className="flex items-center gap-3">
+                <Button variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>← Anterior</Button>
+                <span className="text-xs text-gray-500">Página {page + 1} de {pageCount}</span>
+                <Button variant="secondary" size="sm" disabled={page + 1 >= pageCount} onClick={() => setPage(p => p + 1)}>Siguiente →</Button>
+              </div>
             </div>
           )}
         </Card>

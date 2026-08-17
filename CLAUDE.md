@@ -49,6 +49,13 @@ Páginas del ciclo de venues:
 - Los eventos se borran con **borrado lógico** en el backend: desaparecen de listados/tienda pero sus
   órdenes históricas siguen visibles en Órdenes — es comportamiento esperado, no un bug.
 
+## Listado de clientes (`/admin/customers`)
+
+Filtros (búsqueda con debounce, evento, rango de fechas), orden por columnas y paginación van
+**al servidor**: nunca filtrar ni ordenar en el cliente sobre la página cargada, que son 30 filas
+de miles. El total sale de la cabecera `X-Total-Count` de la respuesta, no de `data.length`.
+"Exportar CSV" pega a `GET /customers/export` con **los mismos filtros** y se baja como blob.
+
 ## Tienda pública y checkout
 
 - Los paquetes de pago de un venue Starter **no llegan** desde `GET /public/vip-packages`: el

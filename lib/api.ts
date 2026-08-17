@@ -92,9 +92,26 @@ export const citiesApi = {
 }
 
 // ── Customers ────────────────────────────────────────────────
+// El total de resultados del listado viaja en la cabecera X-Total-Count.
+export interface CustomerListParams {
+  venue_id?: string
+  email?: string
+  search?: string
+  event_id?: string
+  date_from?: string
+  date_to?: string
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
+  skip?: number
+  limit?: number
+}
+
 export const customersApi = {
-  list: (params?: { venue_id?: string; email?: string; search?: string; skip?: number; limit?: number }) =>
+  list: (params?: CustomerListParams) =>
     api.get('/customers', { params: { limit: 100, ...params } }),
+  // Mismos filtros que el listado, sin paginar (tope de 10.000 filas)
+  exportCsv: (params?: Omit<CustomerListParams, 'skip' | 'limit'>) =>
+    api.get('/customers/export', { params, responseType: 'blob' }),
   create: (data: unknown) => api.post('/customers', data),
   get: (id: string) => api.get(`/customers/${id}`),
   update: (id: string, data: unknown) => api.patch(`/customers/${id}`, data),
