@@ -147,11 +147,24 @@ export interface Ticket {
   holder_name: string | null
   holder_email: string | null
   holder_phone: string | null
-  status: 'valid' | 'used' | 'cancelled'
+  // 'pending' = la orden no está pagada: el ticket reserva el cupo pero
+  // el check-in lo rechaza. Pasa a 'valid' al confirmarse el pago.
+  status: 'pending' | 'valid' | 'used' | 'cancelled'
   checked_in_at: string | null
   check_in_location: string | null
   qr_code_url: string | null
   created_at: string
+}
+
+/** Etiqueta y color de un estado de ticket (una sola fuente para todas las pantallas). */
+export const TICKET_STATUS: Record<
+  string,
+  { label: string; badge: 'green' | 'blue' | 'red' | 'yellow'; dot: string; text: string }
+> = {
+  pending: { label: 'Pendiente de pago', badge: 'yellow', dot: 'bg-yellow-500', text: 'text-yellow-400' },
+  valid: { label: 'Válido', badge: 'green', dot: 'bg-green-500', text: 'text-green-400' },
+  used: { label: 'Usado', badge: 'blue', dot: 'bg-gray-500', text: 'text-gray-400' },
+  cancelled: { label: 'Cancelado', badge: 'red', dot: 'bg-red-500', text: 'text-red-400' },
 }
 
 export interface CheckInResponse {

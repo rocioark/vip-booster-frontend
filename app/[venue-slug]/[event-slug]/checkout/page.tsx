@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
 import { ID_TYPES, type VipPackage } from '@/lib/types'
 import Link from 'next/link'
-import { ArrowLeft, Lock, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Lock, CheckCircle2, Clock3 } from 'lucide-react'
 import { AxiosError } from 'axios'
 
 function fmt(n: number) {
@@ -139,17 +139,27 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
   if (step === 'done') {
     return (
       <div className="max-w-lg mx-auto text-center py-16 px-4">
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-900/50 border border-green-500 mb-6">
-          <CheckCircle2 className="h-10 w-10 text-green-400" />
+        <div className={`inline-flex h-20 w-20 items-center justify-center rounded-full border mb-6 ${
+          orderCompleted ? 'bg-green-900/50 border-green-500' : 'bg-yellow-900/40 border-yellow-600'
+        }`}>
+          {orderCompleted
+            ? <CheckCircle2 className="h-10 w-10 text-green-400" />
+            : <Clock3 className="h-10 w-10 text-yellow-400" />}
         </div>
         <h1 className="text-3xl font-black text-white mb-2">
-          {orderCompleted ? '¡Boletas confirmadas!' : '¡Orden creada!'}
+          {orderCompleted ? '¡Boletas confirmadas!' : 'Tu orden quedó registrada'}
         </h1>
-        <p className="text-gray-400 mb-8">
+        <p className={`text-gray-400 ${orderCompleted || wompiUrl ? 'mb-8' : 'mb-4'}`}>
           {orderCompleted
             ? 'Tu orden gratuita quedó confirmada: no hay nada que pagar. Tus tickets con QR llegan a tu email.'
-            : 'Revisa tu email para los detalles.'}
+            : 'El venue te contactará para coordinar el pago.'}
         </p>
+        {!orderCompleted && !wompiUrl && (
+          <p className="text-sm text-yellow-200/80 border border-yellow-800 bg-yellow-900/25 rounded-xl px-4 py-3 mb-8">
+            Tus boletas se activan cuando el pago quede confirmado; hasta entonces
+            el código no permite el ingreso al evento.
+          </p>
+        )}
         {wompiUrl ? (
           <div className="space-y-4">
             <a
@@ -170,7 +180,7 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
             onClick={() => router.push(`/${venueSlug}/confirmacion?order=${orderId}`)}
             className="bg-brand-600 hover:bg-brand-500 text-white font-bold px-8 py-4 rounded-xl transition-colors"
           >
-            Ver mis tickets →
+            {orderCompleted ? 'Ver mis tickets →' : 'Ver el estado de mi orden →'}
           </button>
         )}
       </div>
@@ -267,18 +277,30 @@ function CheckoutForm({ venueSlug, eventSlug }: { venueSlug: string; eventSlug: 
               Confirmá la orden y tus boletas con QR llegan a tu email.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {PAYMENT_METHODS.map(pm => (
-                <button key={pm.value} type="button" onClick={() => setForm(f => ({ ...f, payment_method: pm.value }))}
-                  className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
-                    form.payment_method === pm.value
-                      ? 'bg-brand-900 border-brand-500 text-brand-300'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
-                  }`}>
-                  {pm.label}
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {PAYMENT_METHODS.map(pm => (
+                  <button key={pm.value} type="button" onClick={() => setForm(f => ({ ...f, payment_method: pm.value }))}
+                    className={`py-3 px-4 rounded-xl border text-sm font-medium transition-all ${
+                      form.payment_method === pm.value
+                        ? 'bg-brand-900 border-brand-500 text-brand-300'
+                        : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                    }`}>
+                    {pm.label}
+                  </button>
+                ))}
+              </div>
+              {/* El cobro en línea todavía no está activo: elegir un método sin
+                  pedir datos ni explicar el paso siguiente parecía un pago hecho. */}
+              <div className="rounded-xl border border-yellow-800 bg-yellow-900/25 px-4 py-3 text-yellow-200 text-sm">
+                <p className="font-bold mb-1">Todavía no cobramos en línea</p>
+                <p className="text-yellow-200/80">
+                  Al confirmar, tu orden queda <span className="font-semibold">registrada</span> y
+                  el venue te contacta para coordinar el pago por el medio que elegiste.
+                  Tus boletas se activan cuando el pago quede confirmado.
+                </p>
+              </div>
+            </>
           )}
         </div>
 

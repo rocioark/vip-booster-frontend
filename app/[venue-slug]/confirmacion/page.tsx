@@ -3,9 +3,9 @@ import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { publicApi } from '@/lib/public-api'
-import type { Order, Ticket } from '@/lib/types'
+import { TICKET_STATUS, type Order, type Ticket } from '@/lib/types'
 import Link from 'next/link'
-import { CheckCircle2, Download, QrCode, Calendar, Clock } from 'lucide-react'
+import { CheckCircle2, Clock3, Download, QrCode, Calendar, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -42,6 +42,9 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
   })
 
   const isLoading = loadingOrder || loadingTickets
+  // Sin pago confirmado las boletas no dan acceso: la pantalla no puede
+  // celebrar una compra ni ofrecer un PDF que parezca un pase válido.
+  const isPending = order?.payment_status === 'pending'
 
   if (!orderId) {
     return (
@@ -55,12 +58,33 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
       <div className="text-center mb-10">
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-900/40 border border-green-600 mb-4">
-          <CheckCircle2 className="h-10 w-10 text-green-400" />
+        <div className={`inline-flex h-20 w-20 items-center justify-center rounded-full border mb-4 ${
+          isPending ? 'bg-yellow-900/40 border-yellow-600' : 'bg-green-900/40 border-green-600'
+        }`}>
+          {isPending
+            ? <Clock3 className="h-10 w-10 text-yellow-400" />
+            : <CheckCircle2 className="h-10 w-10 text-green-400" />}
         </div>
-        <h1 className="text-3xl font-black text-white mb-1">¡Gracias por tu compra!</h1>
-        <p className="text-gray-400">Guarda esta página para acceder a tus tickets</p>
+        <h1 className="text-3xl font-black text-white mb-1">
+          {isPending ? 'Tu orden quedó registrada' : '¡Gracias por tu compra!'}
+        </h1>
+        <p className="text-gray-400">
+          {isPending
+            ? 'El venue te contactará para coordinar el pago.'
+            : 'Guarda esta página para acceder a tus tickets'}
+        </p>
       </div>
+
+      {isPending && (
+        <div className="mb-6 rounded-2xl border border-yellow-700 bg-yellow-900/25 p-5 text-sm text-yellow-200">
+          <p className="font-bold mb-1">Tus boletas todavía no dan acceso</p>
+          <p className="text-yellow-200/80">
+            Se activan cuando el venue confirme el pago. Hasta entonces el código
+            no sirve para entrar al evento y el PDF no está disponible: guarda
+            esta página, el estado se actualiza aquí mismo.
+          </p>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">
@@ -103,6 +127,9 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <QrCode className="h-5 w-5 text-brand-400" />
                 Tus tickets ({tickets.length})
+                {isPending && (
+                  <span className="text-xs font-medium text-yellow-400">· sin activar</span>
+                )}
               </h2>
               {tickets.map((ticket) => (
                 <div key={ticket.id} className="bg-gray-900 border border-gray-700 rounded-2xl p-5">
@@ -111,9 +138,9 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
                       <p className="font-mono text-lg font-bold text-white">{ticket.ticket_code}</p>
                       {ticket.holder_name && <p className="text-sm text-gray-400">{ticket.holder_name}</p>}
                       <div className="inline-flex items-center gap-1.5 text-xs">
-                        <span className={`h-2 w-2 rounded-full ${ticket.status === 'valid' ? 'bg-green-500' : ticket.status === 'used' ? 'bg-gray-500' : 'bg-red-500'}`} />
-                        <span className={ticket.status === 'valid' ? 'text-green-400' : ticket.status === 'used' ? 'text-gray-400' : 'text-red-400'}>
-                          {ticket.status === 'valid' ? 'Válido' : ticket.status === 'used' ? 'Usado' : 'Cancelado'}
+                        <span className={`h-2 w-2 rounded-full ${TICKET_STATUS[ticket.status]?.dot ?? 'bg-gray-500'}`} />
+                        <span className={TICKET_STATUS[ticket.status]?.text ?? 'text-gray-400'}>
+                          {TICKET_STATUS[ticket.status]?.label ?? ticket.status}
                         </span>
                       </div>
                       {ticket.checked_in_at && (
@@ -123,20 +150,33 @@ function ConfirmacionContent({ venueSlug }: { venueSlug: string }) {
                         </p>
                       )}
                     </div>
-                    {ticket.qr_code_url && (
+                    {/* El QR de un ticket pendiente no abre la puerta: mostrarlo
+                        invita a llegar al evento con una captura que va a fallar. */}
+                    {ticket.status === 'pending' ? (
+                      <div className="h-20 w-20 rounded-lg border border-dashed border-yellow-800/70 shrink-0 flex items-center justify-center text-center text-[10px] leading-tight text-yellow-300/70 px-1">
+                        QR al confirmar el pago
+                      </div>
+                    ) : ticket.qr_code_url && (
                       <img src={ticket.qr_code_url} alt={`QR ${ticket.ticket_code}`}
                         className="h-20 w-20 rounded-lg border border-gray-700 shrink-0" />
                     )}
                   </div>
-                  <a
-                    href={`/api/v1/tickets/${ticket.id}/pdf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 flex items-center justify-center gap-2 text-sm text-brand-400 hover:text-brand-300 border border-brand-800 hover:border-brand-600 rounded-xl py-2.5 transition-colors"
-                  >
-                    <Download className="h-4 w-4" />
-                    Descargar PDF del ticket
-                  </a>
+                  {ticket.status === 'pending' ? (
+                    <p className="mt-4 flex items-center justify-center gap-2 text-sm text-yellow-300/80 border border-yellow-800/60 rounded-xl py-2.5">
+                      <Clock3 className="h-4 w-4" />
+                      El PDF se habilita al confirmarse el pago
+                    </p>
+                  ) : (
+                    <a
+                      href={`/api/v1/tickets/${ticket.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 flex items-center justify-center gap-2 text-sm text-brand-400 hover:text-brand-300 border border-brand-800 hover:border-brand-600 rounded-xl py-2.5 transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      Descargar PDF del ticket
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

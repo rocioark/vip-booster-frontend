@@ -9,7 +9,7 @@ import { Header } from '@/components/layout/Header'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { CreateOrderModal } from '@/components/orders/CreateOrderModal'
-import type { Order, Ticket, Event } from '@/lib/types'
+import { TICKET_STATUS, type Order, type Ticket, type Event } from '@/lib/types'
 import { ChevronDown, ChevronUp, CheckCircle, XCircle, Plus, Download } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -129,15 +129,21 @@ function OrderRow({ order }: { order: Order }) {
                   <div key={t.id} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs">
                     <span className="font-mono font-medium">{t.ticket_code}</span>
                     <Badge
-                      label={t.status === 'valid' ? 'Válido' : t.status === 'used' ? 'Usado' : 'Cancelado'}
-                      variant={t.status === 'valid' ? 'green' : t.status === 'used' ? 'blue' : 'red'}
+                      label={TICKET_STATUS[t.status]?.label ?? t.status}
+                      variant={TICKET_STATUS[t.status]?.badge ?? 'gray'}
                     />
                     {t.holder_name && <span className="text-gray-500">{t.holder_name}</span>}
                     {t.checked_in_at && <span className="text-gray-400">Check-in: {fmtDate(t.checked_in_at)}</span>}
-                    <a href={ticketsApi.pdfUrl(t.id)} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium">
-                      <Download className="h-3 w-3" /> PDF
-                    </a>
+                    {/* Sin pago confirmado no hay PDF: el backend lo rechaza y un
+                        pase impreso de una orden pendiente confunde en la puerta. */}
+                    {t.status === 'pending' ? (
+                      <span className="text-gray-400">PDF al confirmar el pago</span>
+                    ) : (
+                      <a href={ticketsApi.pdfUrl(t.id)} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-brand-600 hover:text-brand-800 font-medium">
+                        <Download className="h-3 w-3" /> PDF
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

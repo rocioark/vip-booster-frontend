@@ -66,6 +66,14 @@ de miles. El total sale de la cabecera `X-Total-Count` de la respuesta, no de `d
   elegir cómo pagar algo que no se cobra confunde. Se muestra "Gratis" y el total sale como
   "Gratis", no como "$ 0". La orden igual viaja con el `payment_method` por defecto — para el
   backend una orden de total 0 se completa sola, sin pasarela.
+- **Una orden de pago queda PENDING y sus tickets `pending`**: Wompi no cobra en línea todavía,
+  así que el venue coordina el pago aparte y el check-in rechaza esos tickets. Las pantallas no
+  pueden dar la compra por cerrada: el checkout avisa "Todavía no cobramos en línea… el venue te
+  contacta", el paso final dice "Tu orden quedó registrada" y `/[venue-slug]/confirmacion` muestra
+  banner ámbar, el badge "Pendiente de pago" y **oculta el PDF** (el backend lo devuelve 400 hasta
+  que se confirme el pago).
+- Etiquetas y colores de estado de ticket salen de `TICKET_STATUS` en `lib/types.ts` — una sola
+  fuente para tienda y admin. No volver a escribir ternarios `status === 'valid' ? …`.
 
 ## Convenciones
 
