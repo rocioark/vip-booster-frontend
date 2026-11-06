@@ -8,10 +8,48 @@ Este repo es el panel de administración + tienda pública + check-in.
 - **Este repo (frontend)**: Next.js 14 (App Router, standalone) + TypeScript + Tailwind +
   TanStack Query + axios.
 - **Backend**: repo hermano `../vip_booster` (FastAPI + PostgreSQL + Alembic).
-- **Despliegue**: AMBOS repos auto-despliegan en **Railway** al pushear a `main`. NO se usa Vercel —
-  el `vercel.json` de este repo es **residual, ignorarlo**. Producción: https://www.kythos.vip
+- **Despliegue**: en transición a **Render** con Docker (`Dockerfile.render` + `render.yaml`, ver
+  abajo). ⚠️ **Railway sigue siendo el deploy vivo de este repo**: auto-despliega al pushear a
+  `main` con `npm run build` + `npm start`, y hasta que se haga el corte **no se puede romper esa
+  ruta**. El backend ya está en Render. NO se usa Vercel — el `vercel.json` de este repo es
+  **residual, ignorarlo**. Producción: https://www.kythos.vip
 - Toda llamada a API va por el rewrite `/api/*` → backend (ver `next.config.js`); el cliente axios
   usa `baseURL: '/api/v1'` (`lib/api.ts`). Auth por cookies httpOnly (`vb_access`/`vb_refresh`).
+
+## Despliegue en Render
+
+- **Blueprint**: `render.yaml` en la raíz define el servicio web `vipbooster-web` (runtime docker,
+  `dockerfilePath: ./Dockerfile.render`, plan free). Si el servicio NO se crea desde el Blueprint,
+  hay que seleccionar el Dockerfile a mano (Settings → Dockerfile Path → `./Dockerfile.render`).
+- **`Dockerfile.render`** es la imagen de producción: 3 etapas (deps → build → runtime) sobre
+  `node:20-slim`. La etapa de build instala **también** las devDependencies (`next build` necesita
+  typescript, tailwind, postcss); la imagen final solo lleva `.next/standalone`, que trae su propio
+  `node_modules` podado.
+- **`output: 'standalone'` NO está detrás de ninguna variable, y no debe estarlo**: ya está puesto
+  sin condición en `next.config.js` y los scripts de `package.json` dependen de él — `build` copia
+  `static` y `public` dentro de `.next/standalone`, y `start` arranca su `server.js`. Condicionarlo
+  rompería el deploy de Railway. La imagen de Render **reusa** esa salida, no la activa, y corre el
+  mismo `npm run build` que Railway para no tener dos definiciones del build.
+- **Arranque**: `CMD ["node", "server.js"]` con `HOSTNAME=0.0.0.0` y `PORT=3000` por defecto.
+  **`PORT` no se define a mano**: lo inyecta Render y el server de Next lo lee del entorno.
+
+### ⚠️ Dos variables se hornean en el BUILD, no en runtime
+
+En Render van como env vars del servicio (Render las pasa también como build args) y el Dockerfile
+las declara como `ARG`. **Cambiarlas en el dashboard no basta: hay que reconstruir**
+(Manual Deploy → Clear build cache & deploy).
+
+| Variable | Por qué es de build |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | toda `NEXT_PUBLIC_*` queda dentro del bundle del cliente. La usa `lib/api.ts` (`BASE_URL`) y, sobre todo, `app/checkin/page.tsx`, que pega **directo** al backend sin pasar por el proxy |
+| `BACKEND_URL` | no es `NEXT_PUBLIC_` pero el rewrite `/api/*` de `next.config.js` se resuelve en `next build` y queda escrito en `routes-manifest.json` |
+
+- Si falta cualquiera de las dos, **el build falla a propósito**. El alternativo sería hornear el
+  fallback `http://localhost:8000`: una web que carga pero donde toda llamada a la API falla, y que
+  no se arregla sin reconstruir.
+- `RESEND_API_KEY` y `RESEND_FROM_EMAIL` sí son de **runtime** (las leen las rutas server-side de
+  `app/api/*`). Sin ellas los formularios de `/registro` y "quiero cambiar de plan" responden error;
+  el resto de la app funciona igual.
 
 ## Modelo comercial: 4 planes por venue
 
@@ -113,4 +151,11 @@ npm run dev     # desarrollo contra backend local (http://localhost:8000)
 npm run build   # build standalone (igual que Railway)
 npm run lint
 npm run test:e2e
+
+# Probar la imagen de Render en local (las dos build args son obligatorias)
+docker build -f Dockerfile.render \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.kythos.vip \
+  --build-arg BACKEND_URL=https://api.kythos.vip \
+  -t vipbooster-web:render .
+docker run --rm -p 13000:10000 -e PORT=10000 vipbooster-web:render
 ```

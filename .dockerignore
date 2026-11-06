@@ -1,0 +1,43 @@
+# Dependencias y artefactos de build (se reconstruyen dentro de la imagen;
+# un node_modules de Windows en el contexto rompería el build de Linux)
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Git
+.git/
+.gitignore
+
+# Entornos locales — ojo: el .env.local de este repo apunta el proxy a
+# PRODUCCIÓN, no debe entrar al contexto de build
+.env
+.env.*
+
+# Tests E2E (Playwright) y sus reportes
+e2e/
+playwright.config.ts
+playwright-report/
+test-results/
+coverage/
+
+# Tooling de agentes / IDE
+.claude/
+.vscode/
+.idea/
+
+# Otros targets de despliegue
+Dockerfile
+Dockerfile.render
+vercel.json
+.vercel/
+
+# Varios
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.pem
+.DS_Store
+Thumbs.db

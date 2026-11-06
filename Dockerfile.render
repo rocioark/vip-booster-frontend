@@ -1,0 +1,79 @@
+# ─── Imagen de despliegue para Render (Next.js 14, salida standalone) ─────────
+# Render define $PORT y lo inyecta en el contenedor; el server.js de Next cae a
+# 3000 si no está. Railway sigue desplegando este repo con `npm run build` +
+# `npm start` desde main, sin pasar por acá.
+#
+# Build local:  docker build -f Dockerfile.render \
+#                 --build-arg NEXT_PUBLIC_API_URL=https://api.kythos.vip \
+#                 --build-arg BACKEND_URL=https://api.kythos.vip \
+#                 -t vipbooster-web:render .
+# En Render:    Settings → Dockerfile Path → ./Dockerfile.render
+#
+# NOTA sobre `output: 'standalone'`: ya está puesto sin condición en
+# next.config.js y `npm run build`/`npm start` dependen de `.next/standalone`
+# (copian static/public dentro y arrancan su server.js). Ponerlo detrás de una
+# env var rompería el deploy de Railway, así que esta imagen reusa la salida
+# standalone que el repo ya produce en vez de activarla.
+
+# ─── Etapa 1: dependencias ────────────────────────────────────────────────────
+FROM node:20-slim AS deps
+
+WORKDIR /app
+
+# Se instalan TAMBIÉN las devDependencies: next build necesita typescript,
+# tailwind, postcss y autoprefixer. La imagen final no las lleva — la salida
+# standalone trae su propio node_modules podado.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# ─── Etapa 2: build ───────────────────────────────────────────────────────────
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Las NEXT_PUBLIC_* se hornean en el bundle durante el build, así que tienen que
+# llegar como build args (Render pasa las env vars del servicio como build args).
+# BACKEND_URL va igual aunque no sea NEXT_PUBLIC_: el rewrite `/api/*` de
+# next.config.js se resuelve en build y queda escrito en routes-manifest.json —
+# cambiarla solo en runtime NO mueve el proxy.
+ARG NEXT_PUBLIC_API_URL
+ARG BACKEND_URL
+
+# Mejor reventar el build que publicar una imagen con el fallback
+# http://localhost:8000 horneado: el síntoma sería una web que carga pero
+# donde toda llamada a la API falla, y no se puede arreglar sin reconstruir.
+RUN test -n "$NEXT_PUBLIC_API_URL" || { echo "ERROR: falta --build-arg NEXT_PUBLIC_API_URL"; exit 1; } \
+    && test -n "$BACKEND_URL" || { echo "ERROR: falta --build-arg BACKEND_URL"; exit 1; }
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    BACKEND_URL=$BACKEND_URL \
+    NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# El mismo `npm run build` que corre Railway: next build + copiar static y
+# public dentro de .next/standalone. Una sola definición del build.
+RUN npm run build
+
+# ─── Etapa 3: runtime ─────────────────────────────────────────────────────────
+FROM node:20-slim AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000
+
+# .next/standalone es autocontenido: server.js, su node_modules podado y
+# —después de `npm run build`— .next/static y public ya copiados dentro.
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+
+# Usuario no root (la imagen de node ya trae el usuario `node`)
+USER node
+
+EXPOSE 3000
+
+# server.js lee PORT y HOSTNAME del entorno; Render sobreescribe PORT.
+CMD ["node", "server.js"]

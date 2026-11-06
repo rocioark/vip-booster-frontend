@@ -1,0 +1,38 @@
+# ─── Blueprint de Render ──────────────────────────────────────────────────────
+# Define el servicio web del frontend. Render lo lee al crear o sincronizar el
+# Blueprint (Dashboard → Blueprints → New Blueprint Instance).
+#
+# Todas las variables van con `sync: false`: se ponen a mano en Render
+# (Dashboard → servicio → Environment) y el Blueprint no las sobreescribe en
+# cada sync. Render las pasa también como build args, que es lo que necesitan
+# las dos primeras.
+#
+# PORT no se define: lo inyecta Render y el server.js de Next lo lee del
+# entorno (cae a 3000 si no está).
+
+services:
+  - type: web
+    name: vipbooster-web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    envVars:
+      # ─── Se HORNEAN en el build (el Dockerfile las recibe como ARG) ───────
+      # NEXT_PUBLIC_* quedan dentro del bundle del cliente. Sin valor, el
+      # build falla a propósito en vez de hornear el fallback localhost:8000.
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      # No es NEXT_PUBLIC_ pero también es de build: el rewrite `/api/*` de
+      # next.config.js se resuelve en `next build` y queda escrito en
+      # routes-manifest.json. Cambiarla solo en runtime NO mueve el proxy;
+      # hay que reconstruir (Manual Deploy → Clear build cache & deploy).
+      - key: BACKEND_URL
+        sync: false
+
+      # ─── Runtime (rutas server-side de app/api/*, correos con Resend) ─────
+      # Sin RESEND_API_KEY los formularios de /registro y "quiero cambiar de
+      # plan" responden error; el resto de la app funciona igual.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
